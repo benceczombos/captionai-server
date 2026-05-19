@@ -10,7 +10,7 @@ ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
 
 @app.route('/')
 def home():
-    json={'audio_url': audio_url, 'language_code': 'hu', 'speech_model': 'universal-2'},
+    return jsonify({'status': 'CaptionAI szerver aktív ✅'})
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -27,7 +27,7 @@ def transcribe():
 
     # Submit
     res = requests.post('https://api.assemblyai.com/v2/transcript',
-                        json={'audio_url': audio_url, 'language_code': 'hu'},
+                        json={'audio_url': audio_url, 'language_code': 'hu', 'speech_model': 'universal-2'},
                         headers=headers)
     job = res.json()
     if 'id' not in job:
