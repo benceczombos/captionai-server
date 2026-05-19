@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import requests
 import os
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -10,7 +11,7 @@ ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
 
 @app.route('/')
 def home():
-    return jsonify({'status': 'CaptionAI szerver aktív ✅'})
+    return send_file('app.html')
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -25,7 +26,6 @@ def transcribe():
 
     headers = {'authorization': api_key, 'content-type': 'application/json'}
 
-    # Submit
     res = requests.post('https://api.assemblyai.com/v2/transcript',
                         json={'audio_url': audio_url, 'language_code': 'hu', 'speech_models': ['universal-2']},
                         headers=headers)
@@ -33,8 +33,6 @@ def transcribe():
     if 'id' not in job:
         return jsonify({'error': job.get('error', 'Ismeretlen hiba')}), 500
 
-    # Poll
-    import time
     for _ in range(60):
         time.sleep(3)
         poll = requests.get(f"https://api.assemblyai.com/v2/transcript/{job['id']}",
