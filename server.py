@@ -10,7 +10,7 @@ ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
 
 @app.route('/')
 def home():
-    return jsonify({'status': 'CaptionAI szerver aktív ✅'})
+    json={'audio_url': audio_url, 'language_code': 'hu', 'speech_model': 'universal-2'},
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
