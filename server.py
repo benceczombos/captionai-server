@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
-GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
+OPENAI_KEY = os.environ.get('OPENAI_KEY', '')
 
 @app.route('/')
 def home():
@@ -50,31 +50,30 @@ def generate():
     data = request.json
     system = data.get('system', '')
     user = data.get('user', '')
-    api_key = GEMINI_KEY
+    api_key = OPENAI_KEY
 
     if not api_key:
-        return jsonify({'error': 'Hiányzó Gemini API kulcs a szerveren'}), 400
+        return jsonify({'error': 'Hiányzó OpenAI API kulcs a szerveren'}), 400
 
-    prompt = f"{system}\n\n{user}"
-
-    res = requests.post(
-        f'https://generativelanguage.googleapis.com/v1beta/models/f'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key={api_key}',:generateContent?key={api_key}',
-        headers={'Content-Type': 'application/json'},
+    res = requests.post('https://api.openai.com/v1/chat/completions',
+        headers={
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
+        },
         json={
-            'contents': [{'parts': [{'text': prompt}]}],
-            'generationConfig': {'maxOutputTokens': 1000}
-        }
-    )
+            'model': 'gpt-4o-mini',
+            'max_tokens': 1000,
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user', 'content': user}
+            ]
+        })
 
     result = res.json()
     if 'error' in result:
-        return jsonify({'error': result['error'].get('message', 'Gemini API hiba')}), 500
+        return jsonify({'error': result['error'].get('message', 'OpenAI API hiba')}), 500
 
-    try:
-        text = result['candidates'][0]['content']['parts'][0]['text']
-    except (KeyError, IndexError):
-        return jsonify({'error': 'Üres válasz a Gemini-től'}), 500
-
+    text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
     return jsonify({'text': text})
 
 if __name__ == '__main__':
