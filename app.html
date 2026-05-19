@@ -1470,22 +1470,19 @@ ${styleInfo ? `\nVideó stílus(ok) – igazítsd ehhez a leírás hangvételét
 Hangulat: ${selectedTone}`;
 
   try {
-    // Render szerveren keresztül Groq API (CORS-mentes)
-    const serverBase = sheetsUrl ? sheetsUrl.replace('/transcribe', '') : '';
-    if (!serverBase) throw new Error('Nincs szerver URL! Add meg a ⚙ API beállításoknál.');
-
-    const response = await fetch(serverBase + '/generate', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
         system: systemPrompt,
-        user: userPrompt
+        messages: [{ role: 'user', content: userPrompt }]
       })
     });
 
     const data = await response.json();
-    if (data.error) throw new Error(data.error);
-    const text = data.text || '';
+    const text = data.content?.map(i => i.text || '').join('') || '';
     if (!text) throw new Error('Üres válasz');
 
     resultVersions = text.split('---').map(v => v.trim()).filter(Boolean);
