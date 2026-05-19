@@ -58,7 +58,7 @@ def generate():
     prompt = f"{system}\n\n{user}"
 
     res = requests.post(
-        f'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}',
+        f'https://generativelanguage.googleapis.com/v1beta/models/f'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key={api_key}',:generateContent?key={api_key}',
         headers={'Content-Type': 'application/json'},
         json={
             'contents': [{'parts': [{'text': prompt}]}],
