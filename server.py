@@ -8,11 +8,14 @@ app = Flask(__name__)
 CORS(app)
 
 ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
-OPENAI_KEY = os.environ.get('OPENAI_KEY', '')
 
 @app.route('/')
 def home():
     return send_file('app.html')
+
+@app.route('/status')
+def status():
+    return jsonify({'status': 'CaptionAI szerver aktív ✅'})
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
@@ -44,37 +47,6 @@ def transcribe():
             return jsonify({'error': poll.get('error', 'Átírás sikertelen')}), 500
 
     return jsonify({'error': 'Időtúllépés'}), 504
-
-@app.route('/generate', methods=['POST'])
-def generate():
-    data = request.json
-    system = data.get('system', '')
-    user = data.get('user', '')
-    api_key = OPENAI_KEY
-
-    if not api_key:
-        return jsonify({'error': 'Hiányzó OpenAI API kulcs a szerveren'}), 400
-
-    res = requests.post('https://api.openai.com/v1/chat/completions',
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
-        },
-        json={
-            'model': 'gpt-4o-mini',
-            'max_tokens': 1000,
-            'messages': [
-                {'role': 'system', 'content': system},
-                {'role': 'user', 'content': user}
-            ]
-        })
-
-    result = res.json()
-    if 'error' in result:
-        return jsonify({'error': result['error'].get('message', 'OpenAI API hiba')}), 500
-
-    text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
-    return jsonify({'text': text})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
