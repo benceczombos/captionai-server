@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
-GROQ_KEY = os.environ.get('GROQ_KEY', '')
+GEMINI_KEY = os.environ.get('GEMINI_KEY', '')
 
 @app.route('/')
 def home():
@@ -50,30 +50,31 @@ def generate():
     data = request.json
     system = data.get('system', '')
     user = data.get('user', '')
-    api_key = GROQ_KEY
+    api_key = GEMINI_KEY
 
     if not api_key:
-        return jsonify({'error': 'Hiányzó Groq API kulcs a szerveren'}), 400
+        return jsonify({'error': 'Hiányzó Gemini API kulcs a szerveren'}), 400
 
-    res = requests.post('https://api.groq.com/openai/v1/chat/completions',
-        headers={
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
-        },
+    prompt = f"{system}\n\n{user}"
+
+    res = requests.post(
+        f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}',
+        headers={'Content-Type': 'application/json'},
         json={
-            'model': 'llama-3.3-70b-versatile',
-            'max_tokens': 1000,
-            'messages': [
-                {'role': 'system', 'content': system},
-                {'role': 'user', 'content': user}
-            ]
-        })
+            'contents': [{'parts': [{'text': prompt}]}],
+            'generationConfig': {'maxOutputTokens': 1000}
+        }
+    )
 
     result = res.json()
     if 'error' in result:
-        return jsonify({'error': result['error'].get('message', 'Groq API hiba')}), 500
+        return jsonify({'error': result['error'].get('message', 'Gemini API hiba')}), 500
 
-    text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+    try:
+        text = result['candidates'][0]['content']['parts'][0]['text']
+    except (KeyError, IndexError):
+        return jsonify({'error': 'Üres válasz a Gemini-től'}), 500
+
     return jsonify({'text': text})
 
 if __name__ == '__main__':
