@@ -27,7 +27,7 @@ def transcribe():
 
     # Submit
     res = requests.post('https://api.assemblyai.com/v2/transcript',
-                        json={'audio_url': audio_url, 'language_code': 'hu', 'speech_model': 'universal-2'},
+                        json={'audio_url': audio_url, 'language_code': 'hu', 'speech_models': ['universal-2']},
                         headers=headers)
     job = res.json()
     if 'id' not in job:
