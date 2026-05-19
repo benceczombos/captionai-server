@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
-ANTHROPIC_KEY = os.environ.get('ANTHROPIC_KEY', '')
+GROQ_KEY = os.environ.get('GROQ_KEY', '')
 
 @app.route('/')
 def home():
@@ -50,29 +50,30 @@ def generate():
     data = request.json
     system = data.get('system', '')
     user = data.get('user', '')
-    api_key = data.get('api_key') or ANTHROPIC_KEY
+    api_key = GROQ_KEY
 
     if not api_key:
-        return jsonify({'error': 'Hiányzó Anthropic API kulcs'}), 400
+        return jsonify({'error': 'Hiányzó Groq API kulcs a szerveren'}), 400
 
-    res = requests.post('https://api.anthropic.com/v1/messages',
+    res = requests.post('https://api.groq.com/openai/v1/chat/completions',
         headers={
-            'x-api-key': api_key,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json'
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json'
         },
         json={
-            'model': 'claude-sonnet-4-20250514',
+            'model': 'llama-3.3-70b-versatile',
             'max_tokens': 1000,
-            'system': system,
-            'messages': [{'role': 'user', 'content': user}]
+            'messages': [
+                {'role': 'system', 'content': system},
+                {'role': 'user', 'content': user}
+            ]
         })
 
     result = res.json()
     if 'error' in result:
-        return jsonify({'error': result['error'].get('message', 'Claude API hiba')}), 500
+        return jsonify({'error': result['error'].get('message', 'Groq API hiba')}), 500
 
-    text = ''.join(b.get('text', '') for b in result.get('content', []))
+    text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
     return jsonify({'text': text})
 
 if __name__ == '__main__':
