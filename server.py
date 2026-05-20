@@ -33,6 +33,24 @@ def home():
 def status():
     return jsonify({'status': 'CaptionAI szerver aktív ✅'})
 
+@app.route('/image-proxy', methods=['POST'])
+def image_proxy():
+    data = request.json
+    image_url = data.get('url')
+    if not image_url:
+        return jsonify({'error': 'Hiányzó URL'}), 400
+    if 'drive.google.com' in image_url:
+        image_url, _ = get_drive_direct_url(image_url)
+    try:
+        res = requests.get(image_url, timeout=20, allow_redirects=True)
+        if res.status_code != 200:
+            return jsonify({'error': f'HTTP {res.status_code}'}), 400
+        content_type = res.headers.get('content-type', 'image/jpeg').split(';')[0]
+        b64 = base64.b64encode(res.content).decode('utf-8')
+        return jsonify({'data': f'data:{content_type};base64,{b64}'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     data = request.json
