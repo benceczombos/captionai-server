@@ -2661,19 +2661,29 @@ Hangulat: ${selectedTone}`;
 
     if (status) { status.textContent = '✅ Kész!'; status.style.color = 'var(--green)'; }
 
-    // Show photo Instagram preview with the actual image
+    // Show photo Instagram preview - load image via server proxy
     const photoWrap = document.getElementById('photoInstaWrap');
     const photoImg = document.getElementById('photoInstaImg');
     const photoCaption = document.getElementById('photoInstaCaption');
     if (photoWrap && photoImg) {
-      // Convert Drive URL to viewable image
       const rawUrl = document.getElementById('imageUrl')?.value.trim() || '';
-      let previewUrl = rawUrl;
-      const m = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (m) previewUrl = `https://drive.usercontent.google.com/download?id=${m[1]}&export=view&authuser=0`;
-      photoImg.src = previewUrl;
-      photoImg.style = 'width:100%;height:100%;object-fit:cover';
       photoWrap.classList.add('visible');
+      photoImg.style = 'width:100%;height:100%;object-fit:cover;opacity:0.4';
+      // Load via server proxy to avoid CORS
+      try {
+        const proxyRes = await fetch(serverBase + '/image-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: rawUrl })
+        });
+        const proxyData = await proxyRes.json();
+        if (proxyData.data) {
+          photoImg.src = proxyData.data;
+          photoImg.style = 'width:100%;height:100%;object-fit:cover';
+        }
+      } catch(e) {
+        console.log('Image proxy error:', e);
+      }
     }
     if (photoCaption) {
       const raw = imageResultVersions[0] || '';
