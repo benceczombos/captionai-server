@@ -1756,219 +1756,131 @@ function renderGenerateView(client) {
   content.innerHTML = `
     <div class="profile-badge">${client.emoji} <span>${client.name}</span> · ${client.platforms?.join(', ') || 'TikTok'}</div>
 
-    <div class="section-title">Videó forrása</div>
-    <div class="field">
-      <label>Google Drive link</label>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="driveUrl" placeholder="https://drive.google.com/file/d/…" style="flex:1">
-        <button id="transcribeBtn" onclick="transcribeAndGenerate()" style="padding:11px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0">🚀 Átírás & Generálás</button>
-      </div>
-      <div id="transcribeStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
+    <div class="mode-switcher">
+      <button class="mode-btn ${currentMode === 'video' ? 'active' : ''}" onclick="setMode('video')">🎬 Videó mód</button>
+      <button class="mode-btn ${currentMode === 'photo' ? 'active' : ''}" onclick="setMode('photo')">🖼️ Fotó mód</button>
     </div>
 
-    <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden">
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;opacity:0.12">
-        <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" style="width:160px;height:160px;object-fit:contain">
+    <div id="videoModeContent" style="display:${currentMode === 'video' ? 'block' : 'none'}">
+      <div class="section-title">Videó forrása</div>
+      <div class="field">
+        <label>Google Drive link</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="driveUrl" placeholder="https://drive.google.com/file/d/…" style="flex:1">
+          <button id="transcribeBtn" onclick="transcribeAndGenerate()" style="padding:11px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0">🚀 Átírás & Generálás</button>
+        </div>
+        <div id="transcribeStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
       </div>
-      <label style="margin-bottom:4px;position:relative;z-index:1">📝 Transcript <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcionális – automatikusan töltődik, vagy kézzel is megadható)</span></label>
-      <textarea id="transcript" style="min-height:80px;border:none;padding:6px 0;background:transparent;position:relative;z-index:1" placeholder="Ha nincs Drive link, ide írhatod/másolhatod a videó tartalmát…"></textarea>
-    </div>
+      <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;opacity:0.12">
+          <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" style="width:160px;height:160px;object-fit:contain">
+        </div>
+        <label style="margin-bottom:4px;position:relative;z-index:1">📝 Transcript <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcionális)</span></label>
+        <textarea id="transcript" style="min-height:80px;border:none;padding:6px 0;background:transparent;position:relative;z-index:1" placeholder="Ha nincs Drive link, ide írhatod/másolhatod a videó tartalmát…"></textarea>
+      </div>
 
-    <div class="field">
-      <label>Videó stílus (opcionális, több is választható)</label>
-      <div class="style-picker">
-        <button class="style-picker-trigger" id="stylePickerTrigger" onclick="toggleStyleDropdown()">
-          <span id="stylePickerLabel">Válassz stílust…</span>
-          <span class="arrow">▼</span>
-        </button>
-        <div class="style-dropdown" id="styleDropdown">
-          ${VIDEO_STYLES.map(s => `
-            <div class="style-option" id="opt-${s.id}" onclick="toggleStyle('${s.id}')">
-              <div class="style-checkbox" id="chk-${s.id}"></div>
-              <div>
-                <div class="style-option-label">${s.label}</div>
-                <div class="style-option-desc">${s.desc}</div>
+      <div class="field">
+        <label>Videó stílus (opcionális, több is választható)</label>
+        <div class="style-picker">
+          <button class="style-picker-trigger" id="stylePickerTrigger" onclick="toggleStyleDropdown()">
+            <span id="stylePickerLabel">Válassz stílust…</span>
+            <span class="arrow">▼</span>
+          </button>
+          <div class="style-dropdown" id="styleDropdown">
+            \${VIDEO_STYLES.map(s => \`
+              <div class="style-option" id="opt-\${s.id}" onclick="toggleStyle('\${s.id}')">
+                <div class="style-checkbox" id="chk-\${s.id}"></div>
+                <div>
+                  <div class="style-option-label">\${s.label}</div>
+                  <div class="style-option-desc">\${s.desc}</div>
+                </div>
               </div>
-            </div>
-          `).join('')}
+            \`).join('')}
+          </div>
+        </div>
+        <div class="style-tags" id="styleTags"></div>
+      </div>
+
+      <div class="gen-grid">
+        <div class="field">
+          <label>Helyszín / esemény (opcionális)</label>
+          <input type="text" id="genLocation" placeholder="pl. Budapest, vásár...">
+        </div>
+        <div class="field">
+          <label>Extra kulcsszó (opcionális)</label>
+          <input type="text" id="genKeyword" placeholder="pl. akció, újdonság, recept...">
         </div>
       </div>
-      <div class="style-tags" id="styleTags"></div>
+
+      <div class="section-title">Hangulat</div>
+      <div class="tone-row" id="toneRow">
+        \${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => \`
+          <button class="tone-chip \${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'\${t.split(' ').slice(1).join(' ')}')">\${t}</button>
+        \`).join('')}
+      </div>
+
+      <br>
+      <button class="generate-btn" id="genBtn" onclick="generate()">✨ Leírás generálása</button>
+      <div class="error-box" id="errorBox"></div>
+      <div class="loading-box" id="loadingBox"><div class="spinner"></div><br>Írjuk a leírást...</div>
+      <div class="result-box" id="resultBox">
+        <div class="result-header">
+          <div class="ver-tabs" id="verTabs"></div>
+          <div style="display:flex;gap:8px">
+            <button class="copy-btn" onclick="copyResult()">📋 Másolás</button>
+            <button class="copy-btn" id="csvBtn" onclick="saveToCSV()" style="border-color:#0f9d58;color:#0f9d58">📊 CSV</button>
+          </div>
+        </div>
+        <div id="csvStatus" style="font-size:0.75rem;margin-bottom:8px;min-height:16px;font-style:italic;color:var(--muted)"></div>
+        <div class="char-counter" id="charCounter">0 / 500 karakter</div>
+        <div class="result-text" id="resultText" contenteditable="true" oninput="onCaptionEdit()" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
+      </div>
     </div>
 
-    <div class="gen-grid">
+    <div id="photoModeContent" style="display:${currentMode === 'photo' ? 'block' : 'none'}">
+      <div class="section-title">Fotó forrása</div>
       <div class="field">
-        <label>Helyszín / esemény (opcionális)</label>
-        <input type="text" id="genLocation" placeholder="pl. Budapest, vásár...">
+        <label>Google Drive link (kép)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="imageUrl" placeholder="https://drive.google.com/file/d/… (jpg, png, webp)" style="flex:1">
+          <button id="analyzeBtn" onclick="analyzeImage()" style="padding:11px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0">🔍 Elemzés & Leírás</button>
+        </div>
+        <div id="imageStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
       </div>
-      <div class="field">
-        <label>Extra kulcsszó (opcionális)</label>
-        <input type="text" id="genKeyword" placeholder="pl. akció, újdonság, recept...">
-      </div>
-    </div>
 
-    <div class="section-title">Hangulat</div>
-    <div class="tone-row" id="toneRow">
-      ${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => `
-        <button class="tone-chip ${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'${t.split(' ').slice(1).join(' ')}')">${t}</button>
-      `).join('')}
-    </div>
+      <div class="gen-grid">
+        <div class="field">
+          <label>Helyszín / esemény (opcionális)</label>
+          <input type="text" id="imageLocation" placeholder="pl. Budapest, vásár...">
+        </div>
+        <div class="field">
+          <label>Extra kulcsszó (opcionális)</label>
+          <input type="text" id="imageKeyword" placeholder="pl. akció, újdonság, termék...">
+        </div>
+      </div>
 
-    <br>
-    <button class="generate-btn" id="genBtn" onclick="generate()">✨ Leírás generálása</button>
-    <div class="error-box" id="errorBox"></div>
-    <div class="loading-box" id="loadingBox"><div class="spinner"></div><br>Írjuk a leírást...</div>
-    <div class="result-box" id="resultBox">
-      <div class="result-header">
-        <div class="ver-tabs" id="verTabs"></div>
-        <div style="display:flex;gap:8px">
-          <button class="copy-btn" onclick="copyResult()">📋 Másolás</button>
-          <button class="copy-btn" id="csvBtn" onclick="saveToCSV()" style="border-color:#0f9d58;color:#0f9d58" title="CSV letöltés">📊 CSV</button>
-        </div>
+      <div class="section-title">Hangulat</div>
+      <div class="tone-row">
+        \${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => \`
+          <button class="tone-chip \${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'\${t.split(' ').slice(1).join(' ')}')">\${t}</button>
+        \`).join('')}
       </div>
-      <div id="csvStatus" style="font-size:0.75rem;margin-bottom:8px;min-height:16px;font-style:italic;color:var(--muted)"></div>
-      <div class="char-counter" id="charCounter">0 / 500 karakter</div>
-      <div class="result-text" id="resultText" contenteditable="true" oninput="onCaptionEdit()" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
-    </div>
+      <br>
 
-
-    <div class="rating-wrap" id="ratingWrap" style="display:none">
-      <div class="rating-label">⭐ Mennyire sikerült ez a leírás?</div>
-      <div class="emoji-rating-row">
-        <button class="emoji-rating-btn" onclick="rateCaption(1)" title="1/10" data-score="1">😭</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(2)" title="2/10" data-score="2">😢</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(3)" title="3/10" data-score="3">😞</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(4)" title="4/10" data-score="4">😕</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(5)" title="5/10" data-score="5">😐</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(6)" title="6/10" data-score="6">🙂</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(7)" title="7/10" data-score="7">😊</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(8)" title="8/10" data-score="8">😁</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(9)" title="9/10" data-score="9">🤩</button>
-        <button class="emoji-rating-btn" onclick="rateCaption(10)" title="10/10" data-score="10">🥳</button>
+      <div id="imageAnalysisWrap" style="display:none;border:1px dashed var(--border);border-radius:10px;padding:14px;margin-bottom:16px">
+        <label style="margin-bottom:6px">🧠 AI elemzés</label>
+        <div id="imageAnalysis" style="font-size:0.88rem;color:var(--text);line-height:1.6;font-family:'Lora',serif;font-style:italic"></div>
       </div>
-      <div class="rating-feedback" id="ratingFeedback">Kattints egy emojira hogy értékeld!</div>
-    </div>
-    <div class="insta-preview-wrap" id="instaPreviewWrap">
-      <div class="insta-preview-label">📱 Social media preview</div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start">
-      <div>
-      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:600;margin-bottom:8px">📸 Instagram</div>
-      <div class="insta-post">
-        <div class="insta-header">
-          <div class="insta-avatar-ring">
-            <div class="insta-avatar-inner">
-              <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="avatar">
-            </div>
-          </div>
-          <div class="insta-meta">
-            <div class="insta-username">allin.agency</div>
-            <div class="insta-sponsored">Sponsored</div>
-          </div>
-          <div class="insta-more">···</div>
+      <div class="error-box" id="imageErrorBox"></div>
+      <div class="loading-box" id="imageLoadingBox"><div class="spinner"></div><br>Kép elemzése...</div>
+      <div class="result-box" id="imageResultBox">
+        <div class="result-header">
+          <div class="ver-tabs" id="imageVerTabs"></div>
+          <button class="copy-btn" onclick="copyImageResult()">📋 Másolás</button>
         </div>
-        <div class="insta-image">
-          <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="post">
-        </div>
-        <div class="insta-actions">
-          <button class="insta-icon like-btn" id="instaLikeBtn" onclick="toggleLike('instaLikeBtn','instaLikes',1247)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </button>
-          <button class="insta-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </button>
-          <button class="insta-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
-          <button class="insta-icon insta-bookmark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-          </button>
-        </div>
-        <div class="insta-likes" id="instaLikes">1 247 kedvelés</div>
-        <div class="insta-caption-block">
-          <span class="uname">allin.agency</span><span class="caption-text" id="instaCaption"></span>
-        </div>
-        <div class="insta-comments-link">Mind a 48 hozzászólás megtekintése</div>
-        <div class="insta-time">1 órával ezelőtt</div>
-        <div class="insta-add-comment">
-          <div class="small-avatar">😊</div>
-          <input placeholder="Hozzászólás hozzáadása…" readonly>
-          <button class="post-btn">Közzétesz</button>
-        </div>
+        <div class="result-text" id="imageResultText" contenteditable="true" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
+        <div class="char-counter" id="imageCharCounter">0 / 400 karakter</div>
       </div>
-      </div>
-      </div><!-- /insta col -->
-      <div>
-      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:600;margin-bottom:8px">👥 Facebook</div>
-      <div class="fb-post">
-        <div class="fb-header">
-          <div class="fb-avatar"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="avatar"></div>
-          <div class="fb-meta">
-            <div class="fb-name">Allin Agency</div>
-            <div class="fb-time">1 óra · <svg width="12" height="12" viewBox="0 0 24 24" fill="#b0b3b8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
-          </div>
-          <div class="fb-more">···</div>
-        </div>
-        <div class="fb-caption" id="fbCaption"></div>
-        <div class="fb-image"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="post"></div>
-        <div class="fb-stats">
-          <div class="fb-reactions">
-            <div class="fb-reaction-icons"><span>👍</span><span>❤️</span><span>😮</span></div>
-            <span style="margin-left:6px" id="fbLikeCount">847</span>
-          </div>
-          <div>124 hozzászólás · 38 megosztás</div>
-        </div>
-        <div class="fb-actions">
-          <button class="fb-action-btn fb-like-btn" id="fbLikeBtn" onclick="toggleLike('fbLikeBtn','fbLikeCount',847)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#b0b3b8" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-            Tetszik
-          </button>
-          <button class="fb-action-btn">
-            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Hozzászólás
-          </button>
-          <button class="fb-action-btn">
-            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            Megosztás
-          </button>
-        </div>
-      </div>
-      </div>
-      </div><!-- /fb col -->
-      <div>
-      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:600;margin-bottom:8px">🎵 TikTok</div>
-      <div class="tt-post">
-        <div class="tt-video">
-          <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="video">
-          <div class="tt-sidebar">
-            <div class="tt-avatar-wrap"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="av"></div>
-            <div class="tt-follow-dot">+</div>
-            <div class="tt-side-btn like-btn" id="ttLikeBtn" onclick="toggleLike('ttLikeBtn','ttLikeCount',12400)">
-              <svg viewBox="0 0 24 24" fill="white"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-              <span class="tt-side-count like-count" id="ttLikeCount">12.4K</span>
-            </div>
-            <div class="tt-side-btn">
-              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="white"/></svg>
-              <span class="tt-side-count">843</span>
-            </div>
-            <div class="tt-side-btn">
-              <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13" stroke="white" stroke-width="2"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="white"/></svg>
-              <span class="tt-side-count">Megoszt</span>
-            </div>
-          </div>
-          <div class="tt-overlay">
-            <div class="tt-username">@allin.agency</div>
-            <div class="tt-caption" id="ttCaption"></div>
-            <div class="tt-music">
-              <div class="tt-music-disc">♪</div>
-              <span>Eredeti hang – allin.agency</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      </div>
-      </div><!-- /tt col -->
-      </div><!-- /grid -->
-
     </div>
   `;
 
