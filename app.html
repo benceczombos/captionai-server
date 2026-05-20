@@ -764,18 +764,8 @@ textarea { min-height: 100px; }
 .insta-add-comment .post-btn { color: #4cb5f9; font-size: 0.82rem; font-weight: 700; cursor: pointer; background: none; border: none; }
 
 /* ── PLATFORM TABS ─────────────────────────────────── */
-.platform-preview-tabs {
-  display: flex; gap: 8px; margin-bottom: 16px;
-}
-.platform-tab-btn {
-  padding: 7px 16px; border-radius: 20px;
-  border: 1.5px solid var(--border); background: none;
-  color: var(--muted); font-family: 'Syne', sans-serif;
-  font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
-}
-.platform-tab-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-.platform-preview { display: none; }
-.platform-preview.active { display: block; }
+.platform-preview-tabs { display: none; }
+.platform-preview { display: block !important; }
 
 /* ── FACEBOOK PREVIEW ──────────────────────────────── */
 .fb-post {
@@ -1844,7 +1834,7 @@ function renderGenerateView(client) {
     </div>
     <div class="insta-preview-wrap" id="instaPreviewWrap">
       <div class="insta-preview-label">📱 Social media preview</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:start;font-size:0.78rem">
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start">
       <div>
       <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:600;margin-bottom:8px">📸 Instagram</div>
       <div class="insta-post">
