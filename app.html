@@ -1786,17 +1786,7 @@ function renderGenerateView(client) {
             <span id="stylePickerLabel">Válassz stílust…</span>
             <span class="arrow">▼</span>
           </button>
-          <div class="style-dropdown" id="styleDropdown">
-            \${VIDEO_STYLES.map(s => \`
-              <div class="style-option" id="opt-\${s.id}" onclick="toggleStyle('\${s.id}')">
-                <div class="style-checkbox" id="chk-\${s.id}"></div>
-                <div>
-                  <div class="style-option-label">\${s.label}</div>
-                  <div class="style-option-desc">\${s.desc}</div>
-                </div>
-              </div>
-            \`).join('')}
-          </div>
+          <div class="style-dropdown" id="styleDropdown"></div>
         </div>
         <div class="style-tags" id="styleTags"></div>
       </div>
@@ -1930,7 +1920,7 @@ function renderGenerateView(client) {
         </div>
       </div>
     </div>
-  \`;
+  `;
 
   selectedTone = 'Meleg & barátságos';
   selectedVideoStyles = [];
@@ -1943,6 +1933,18 @@ function renderGenerateView(client) {
 function toggleStyleDropdown() {
   const trigger = document.getElementById('stylePickerTrigger');
   const dropdown = document.getElementById('styleDropdown');
+  // Populate if empty
+  if (dropdown && dropdown.innerHTML === '') {
+    dropdown.innerHTML = VIDEO_STYLES.map(s => `
+      <div class="style-option" id="opt-${s.id}" onclick="toggleStyle('${s.id}')">
+        <div class="style-checkbox" id="chk-${s.id}"></div>
+        <div>
+          <div class="style-option-label">${s.label}</div>
+          <div class="style-option-desc">${s.desc}</div>
+        </div>
+      </div>
+    `).join('');
+  }
   trigger.classList.toggle('open');
   dropdown.classList.toggle('open');
 }
