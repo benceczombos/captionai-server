@@ -8,6 +8,7 @@ app = Flask(__name__)
 CORS(app)
 
 ASSEMBLYAI_KEY = os.environ.get('ASSEMBLYAI_KEY', '')
+ANTHROPIC_KEY = os.environ.get('ANTHROPIC_KEY', '')
 
 @app.route('/')
 def home():
@@ -47,6 +48,36 @@ def transcribe():
             return jsonify({'error': poll.get('error', 'Átírás sikertelen')}), 500
 
     return jsonify({'error': 'Időtúllépés'}), 504
+
+@app.route('/generate', methods=['POST'])
+def generate():
+    data = request.json
+    system = data.get('system', '')
+    user = data.get('user', '')
+    api_key = ANTHROPIC_KEY
+
+    if not api_key:
+        return jsonify({'error': 'Hiányzó Anthropic API kulcs a szerveren'}), 400
+
+    res = requests.post('https://api.anthropic.com/v1/messages',
+        headers={
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json'
+        },
+        json={
+            'model': 'claude-haiku-4-5-20251001',
+            'max_tokens': 1000,
+            'system': system,
+            'messages': [{'role': 'user', 'content': user}]
+        })
+
+    result = res.json()
+    if 'error' in result:
+        return jsonify({'error': result['error'].get('message', 'Claude API hiba')}), 500
+
+    text = ''.join(b.get('text', '') for b in result.get('content', []))
+    return jsonify({'text': text})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
