@@ -1860,10 +1860,12 @@ function renderGenerateView(client) {
       </div>
 
       <div class="section-title">Hangulat</div>
-      <div class="tone-row">
-        \${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => \`
-          <button class="tone-chip \${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'\${t.split(' ').slice(1).join(' ')}')">\${t}</button>
-        \`).join('')}
+      <div class="tone-row" id="photoToneRow">
+        <button class="tone-chip active" onclick="setTone(this,'Meleg & barátságos')">😊 Meleg & barátságos</button>
+        <button class="tone-chip" onclick="setTone(this,'Lelkes & izgalmas')">🎉 Lelkes & izgalmas</button>
+        <button class="tone-chip" onclick="setTone(this,'Informatív')">📚 Informatív</button>
+        <button class="tone-chip" onclick="setTone(this,'Játékos & vicces')">😄 Játékos & vicces</button>
+        <button class="tone-chip" onclick="setTone(this,'Prémium & elegáns')">💎 Prémium & elegáns</button>
       </div>
       <br>
 
@@ -1881,8 +1883,54 @@ function renderGenerateView(client) {
         <div class="result-text" id="imageResultText" contenteditable="true" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
         <div class="char-counter" id="imageCharCounter">0 / 400 karakter</div>
       </div>
+
+      <!-- PHOTO INSTAGRAM PREVIEW -->
+      <div class="insta-preview-wrap" id="photoInstaWrap">
+        <div class="insta-preview-label">📱 Instagram preview</div>
+        <div class="insta-post" style="max-width:420px">
+          <div class="insta-header">
+            <div class="insta-avatar-ring">
+              <div class="insta-avatar-inner">
+                <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="avatar">
+              </div>
+            </div>
+            <div class="insta-meta">
+              <div class="insta-username">allin.agency</div>
+              <div class="insta-sponsored">Sponsored</div>
+            </div>
+            <div class="insta-more">···</div>
+          </div>
+          <div class="insta-image" id="photoInstaImage">
+            <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" id="photoInstaImg" alt="post" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div class="insta-actions">
+            <button class="insta-icon like-btn" id="photoInstaLikeBtn" onclick="toggleLike('photoInstaLikeBtn','photoInstaLikes',847)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+            <button class="insta-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </button>
+            <button class="insta-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+            <button class="insta-icon insta-bookmark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </button>
+          </div>
+          <div class="insta-likes" id="photoInstaLikes">847 kedvelés</div>
+          <div class="insta-caption-block">
+            <span class="uname">allin.agency</span><span class="caption-text" id="photoInstaCaption"></span>
+          </div>
+          <div class="insta-time">1 órával ezelőtt</div>
+          <div class="insta-add-comment">
+            <div class="small-avatar">😊</div>
+            <input placeholder="Hozzászólás hozzáadása…" readonly>
+            <button class="post-btn">Közzétesz</button>
+          </div>
+        </div>
+      </div>
     </div>
-  `;
+  \`;
 
   selectedTone = 'Meleg & barátságos';
   selectedVideoStyles = [];
@@ -2611,6 +2659,25 @@ Hangulat: ${selectedTone}`;
 
     if (status) { status.textContent = '✅ Kész!'; status.style.color = 'var(--green)'; }
 
+    // Show photo Instagram preview with the actual image
+    const photoWrap = document.getElementById('photoInstaWrap');
+    const photoImg = document.getElementById('photoInstaImg');
+    const photoCaption = document.getElementById('photoInstaCaption');
+    if (photoWrap && photoImg) {
+      // Convert Drive URL to viewable image
+      const rawUrl = document.getElementById('imageUrl')?.value.trim() || '';
+      let previewUrl = rawUrl;
+      const m = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (m) previewUrl = `https://drive.usercontent.google.com/download?id=${m[1]}&export=view&authuser=0`;
+      photoImg.src = previewUrl;
+      photoImg.style = 'width:100%;height:100%;object-fit:cover';
+      photoWrap.classList.add('visible');
+    }
+    if (photoCaption) {
+      const raw = imageResultVersions[0] || '';
+      photoCaption.innerHTML = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="hashtag">$1</span>');
+    }
+
   } catch(err) {
     showImageError('Hiba: ' + err.message);
   } finally {
@@ -2637,8 +2704,13 @@ function renderImageResult() {
     const counter = document.getElementById('imageCharCounter');
     if (counter) {
       const len = resultText.innerText.length;
-      counter.textContent = `${len} / 500 karakter`;
-      counter.className = 'char-counter' + (len > 500 ? ' over' : len > 420 ? ' warn' : '');
+      counter.textContent = `${len} / 400 karakter`;
+      counter.className = 'char-counter' + (len > 400 ? ' over' : len > 340 ? ' warn' : '');
+    }
+    // Sync photo instagram preview caption
+    const photoCaption = document.getElementById('photoInstaCaption');
+    if (photoCaption) {
+      photoCaption.innerHTML = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="hashtag">$1</span>');
     }
   }
   resultBox.classList.add('visible');
