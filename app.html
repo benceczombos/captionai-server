@@ -9,7 +9,7 @@
 
 :root {
   --bg: #0a0a0a;
-  --bg-image: url('https://i.ibb.co/2YZptXVh/hf-20260520-101237-2d419dba-e04d-4330-bef6-279b0b1357e0.png');
+  --bg-image: url('https://i.ibb.co/5gCSyccV/hf-20260520-103944-ec56405c-ba72-4209-ba08-5d1052bdb5b5.png');
   --surface: #1a1a22;
   --surface2: #22222e;
   --border: #2e2e3e;
@@ -28,8 +28,9 @@ body {
   background: var(--bg);
   background-image: var(--bg-image);
   background-size: cover;
-  background-position: center;
+  background-position: center center;
   background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--text);
   font-family: 'Syne', sans-serif;
   min-height: 100vh;
@@ -40,11 +41,12 @@ body {
 .sidebar {
   width: 260px;
   min-height: 100vh;
-  background: var(--surface);
+  background: rgba(15,15,19,0.97);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  backdrop-filter: blur(8px);
 }
 
 .sidebar-header {
@@ -185,7 +187,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface);
+  background: rgba(15,15,19,0.97);
+  backdrop-filter: blur(8px);
 }
 
 .topbar-title {
@@ -229,6 +232,8 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 28px 32px;
+  background: rgba(15,15,19,0.85);
+  backdrop-filter: blur(4px);
 }
 
 /* EMPTY STATE */
@@ -1292,9 +1297,12 @@ function renderGenerateView(client) {
       <div id="transcribeStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
     </div>
 
-    <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px">
-      <label style="margin-bottom:4px">📝 Transcript <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcionális – automatikusan töltődik, vagy kézzel is megadható)</span></label>
-      <textarea id="transcript" style="min-height:80px;border:none;padding:6px 0;background:transparent" placeholder="Ha nincs Drive link, ide írhatod/másolhatod a videó tartalmát…"></textarea>
+    <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0;opacity:0.12">
+        <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" style="width:160px;height:160px;object-fit:contain">
+      </div>
+      <label style="margin-bottom:4px;position:relative;z-index:1">📝 Transcript <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcionális – automatikusan töltődik, vagy kézzel is megadható)</span></label>
+      <textarea id="transcript" style="min-height:80px;border:none;padding:6px 0;background:transparent;position:relative;z-index:1" placeholder="Ha nincs Drive link, ide írhatod/másolhatod a videó tartalmát…"></textarea>
     </div>
 
     <div class="field">
