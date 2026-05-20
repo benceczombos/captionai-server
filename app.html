@@ -8,7 +8,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
 
 :root {
-  --bg: #0f0f13;
+  --bg: #0a0a0a;
+  --bg-image: url('https://drive.usercontent.google.com/download?id=1v4l3awYvLARSmrOHWkuLtUmjgOo3brg2&export=view&authuser=0');
   --surface: #1a1a22;
   --surface2: #22222e;
   --border: #2e2e3e;
@@ -25,6 +26,10 @@
 
 body {
   background: var(--bg);
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: var(--text);
   font-family: 'Syne', sans-serif;
   min-height: 100vh;
