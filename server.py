@@ -23,7 +23,11 @@ def get_drive_direct_url(url):
 
 @app.route('/')
 def home():
-    return send_file('app.html')
+    response = send_file('app.html')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/status')
 def status():
