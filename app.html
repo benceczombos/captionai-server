@@ -1470,6 +1470,1646 @@ ${styleInfo ? `\nVideó stílus(ok) – igazítsd ehhez a leírás hangvételét
 Hangulat: ${selectedTone}`;
 
   try {
+    const serverBase = sheetsUrl ? sheetsUrl.replace('/transcribe', '') : '';
+    if (!serverBase) throw new Error('Nincs szerver URL! Add meg a ⚙ API beállításoknál.');
+
+    const response = await fetch(serverBase + '/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system: systemPrompt, user: userPrompt })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    const text = data.text || '';
+    if (!text) throw new Error('Üres válasz');
+
+    resultVersions = text.split('---').map(v => v.trim()).filter(Boolean);
+    activeVersion = 0;
+    renderResult();
+
+  } catch(err) {
+    showError('Hiba: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    loading.classList.remove('visible');
+  }
+}
+
+function renderResult() {
+  const verTabs = document.getElementById('verTabs');
+  const resultText = document.getElementById('resultText');
+  const resultBox = document.getElementById('resultBox');
+
+  verTabs.innerHTML = resultVersions.map((_, i) => `
+    <button class="ver-tab ${i === activeVersion ? 'active' : ''}" onclick="setVersion(${i})">${i+1}. változat</button>
+  `).join('');
+
+  resultText.textContent = resultVersions[activeVersion] || '';
+  resultBox.classList.add('visible');
+  resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setVersion(i) {
+  activeVersion = i;
+  renderResult();
+}
+
+function copyResult() {
+  navigator.clipboard.writeText(resultVersions[activeVersion] || '').then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✅ Másolva!';
+    setTimeout(() => btn.textContent = '📋 Másolás', 2000);
+  });
+}
+
+function saveToCSV() {
+  const client = getClient();
+  const now = new Date();
+  const dateStr = now.toLocaleString('hu-HU');
+  const driveUrl = document.getElementById('driveUrl')?.value?.trim() || '';
+  const videoStyles = selectedVideoStyles.map(id => VIDEO_STYLES.find(v=>v.id===id)?.label).filter(Boolean).join(', ');
+
+  const rows = [
+    ['Dátum', 'Ügyfél', 'Drive link', 'Videó stílus', 'Hangulat', 'Változat', 'Leírás szövege', 'Státusz']
+  ];
+
+  resultVersions.forEach((version, i) => {
+    rows.push([
+      dateStr,
+      client?.name || '',
+      driveUrl,
+      videoStyles,
+      selectedTone,
+      `${i + 1}. változat`,
+      version,
+      'Draft'
+    ]);
+  });
+
+  // Escape CSV fields
+  const csvContent = rows.map(row =>
+    row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `leiras_${(client?.name || 'export').replace(/\s+/g, '_')}_${now.toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  const btn = document.getElementById('csvBtn');
+  btn.textContent = '✅ Letöltve!';
+  const status = document.getElementById('csvStatus');
+  if (status) { status.textContent = 'Nyisd meg Google Sheets-ben: Fájl → Importálás → Feltöltés'; status.style.color = 'var(--green)'; }
+  setTimeout(() => { btn.textContent = '📊 CSV'; if(status) status.textContent = ''; }, 4000);
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
+}
+
+// ── PROFILE VIEW ───────────────────────────────────────
+function renderProfileView(client) {
+  const content = document.getElementById('mainContent');
+  content.innerHTML = `
+    <div class="section-title">Alapadatok</div>
+    <div class="gen-grid">
+      <div class="field">
+        <label>Márkanév</label>
+        <input type="text" id="editName" value="${escHtml(client.name)}">
+      </div>
+      <div class="field">
+        <label>Iparág / típus</label>
+        <input type="text" id="editIndustry" value="${escHtml(client.industry || '')}">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Ikon</label>
+      <div class="emoji-grid" id="editEmojiGrid"></div>
+    </div>
+
+    <div class="section-title">Kommunikáció</div>
+    <div class="field">
+      <label>Platform(ok)</label>
+      <div class="platform-tags" id="editPlatformTags">
+        ${['TikTok','Instagram','Facebook','YouTube'].map(p => `
+          <button class="ptag ${client.platforms?.includes(p) ? 'active' : ''}" data-p="${p}" onclick="togglePlatform(this,'${p}')">${p}</button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Stílus leírás</label>
+      <textarea id="editStyle" rows="4">${escHtml(client.style || '')}</textarea>
+    </div>
+
+    <div class="field">
+      <label>Kötelező hashtagek</label>
+      <input type="text" id="editHashtags" value="${escHtml(client.hashtags || '')}">
+    </div>
+
+    <div class="field">
+      <label>Referencia szöveg(ek)</label>
+      <textarea id="editReference" rows="6">${escHtml(client.reference || '')}</textarea>
+    </div>
+
+    <button class="save-btn" onclick="saveProfile()">💾 Profil mentése</button>
+  `;
+
+  selectedEmoji = client.emoji || '🏢';
+  renderEditEmojiGrid();
+}
+
+function renderEditEmojiGrid() {
+  const grid = document.getElementById('editEmojiGrid');
+  if (!grid) return;
+  grid.innerHTML = EMOJIS.map(e => `
+    <button class="emoji-btn ${e === selectedEmoji ? 'selected' : ''}" onclick="selectEditEmoji('${e}')">${e}</button>
+  `).join('');
+}
+
+function selectEditEmoji(e) {
+  selectedEmoji = e;
+  renderEditEmojiGrid();
+}
+
+function togglePlatform(btn, p) {
+  const client = getClient();
+  if (!client.platforms) client.platforms = ['TikTok'];
+  if (client.platforms.includes(p)) {
+    if (client.platforms.length > 1) client.platforms = client.platforms.filter(x => x !== p);
+  } else {
+    client.platforms.push(p);
+  }
+  btn.classList.toggle('active', client.platforms.includes(p));
+}
+
+function saveProfile() {
+  const client = getClient();
+  if (!client) return;
+  client.name = document.getElementById('editName').value.trim() || client.name;
+  client.industry = document.getElementById('editIndustry').value.trim();
+  client.emoji = selectedEmoji;
+  client.style = document.getElementById('editStyle').value.trim();
+  client.hashtags = document.getElementById('editHashtags').value.trim();
+  client.reference = document.getElementById('editReference').value.trim();
+  saveClients();
+  renderClientsList();
+  renderMain();
+  // flash feedback
+  const btn = document.querySelector('.save-btn');
+  if (btn) { btn.textContent = '✅ Mentve!'; setTimeout(() => btn.textContent = '💾 Profil mentése', 2000); }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── START ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>  min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-title {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.app-title span {
+  color: var(--accent);
+}
+
+.app-sub {
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.clients-label {
+  padding: 16px 20px 8px;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.clients-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.client-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  position: relative;
+}
+
+.client-item:hover { background: var(--surface2); }
+.client-item.active { background: var(--accent); }
+.client-item.active .client-name { color: white; }
+.client-item.active .client-industry { color: rgba(255,255,255,0.65); }
+
+.client-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--surface2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.client-item.active .client-avatar {
+  background: rgba(255,255,255,0.2);
+}
+
+.client-info { flex: 1; min-width: 0; }
+
+.client-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-industry {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-client {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--accent2);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+}
+
+.client-item:hover .delete-client { opacity: 1; }
+.client-item.active .delete-client { opacity: 0.7; color: white; }
+
+.add-client-btn {
+  margin: 10px;
+  padding: 10px;
+  background: none;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: calc(100% - 20px);
+}
+
+.add-client-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.topbar {
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+}
+
+.topbar-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.topbar-subtitle {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface2);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.view-tab {
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+/* EMPTY STATE */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  color: var(--muted);
+  padding: 40px;
+}
+
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+.empty-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 0.85rem; line-height: 1.6; }
+
+/* VIEWS */
+.view { display: none; }
+.view.active { display: block; }
+
+/* FORM STYLES */
+.section-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 12px;
+  margin-top: 24px;
+}
+
+.section-title:first-child { margin-top: 0; }
+
+.field { margin-bottom: 16px; }
+
+label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+input[type="text"], textarea, select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-family: 'Lora', serif;
+  font-size: 0.9rem;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+
+input[type="text"]:focus,
+textarea:focus,
+select:focus { border-color: var(--accent); }
+
+textarea { min-height: 100px; }
+
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emoji-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.emoji-btn:hover { border-color: var(--accent); }
+.emoji-btn.selected { border-color: var(--accent); background: var(--accent); }
+
+.save-btn {
+  padding: 12px 24px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.save-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+/* GENERATE VIEW */
+.gen-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.tone-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tone-chip {
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tone-chip:hover { border-color: var(--accent); color: var(--accent); }
+.tone-chip.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+.generate-btn {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+  letter-spacing: -0.01em;
+}
+
+.generate-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(124,106,247,0.35);
+}
+
+.generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* RESULT */
+.result-box {
+  display: none;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.result-box.visible { display: block; }
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ver-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.ver-tab {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ver-tab.active { background: var(--green); border-color: var(--green); color: #0f0f13; }
+
+.copy-btn {
+  padding: 6px 14px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copy-btn:hover { border-color: var(--green); color: var(--green); }
+
+.result-text {
+  font-family: 'Lora', serif;
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.loading-box {
+  display: none;
+  text-align: center;
+  padding: 30px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.loading-box.visible { display: block; }
+
+.spinner {
+  display: inline-block;
+  width: 22px; height: 22px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-box {
+  display: none;
+  background: rgba(247,106,138,0.1);
+  border: 1px solid var(--accent2);
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: var(--accent2);
+  font-size: 0.85rem;
+  margin-top: 12px;
+}
+
+.error-box.visible { display: block; }
+
+/* MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.visible { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.modal h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.cancel-btn {
+  padding: 10px 18px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.cancel-btn:hover { color: var(--text); }
+
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.profile-badge span { color: var(--text); font-weight: 600; }
+
+.platform-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ptag {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ptag:hover { border-color: var(--accent); color: var(--accent); }
+.ptag.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* VIDEO STYLE PICKER */
+.style-picker {
+  position: relative;
+}
+
+.style-picker-trigger {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.88rem;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: border-color 0.2s;
+}
+
+.style-picker-trigger:hover,
+.style-picker-trigger.open { border-color: var(--accent); }
+
+.style-picker-trigger .arrow {
+  color: var(--muted);
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+.style-picker-trigger.open .arrow { transform: rotate(180deg); }
+
+.style-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0; right: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.style-dropdown.open { display: block; }
+
+.style-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.style-option:hover { background: var(--surface2); }
+.style-option.selected { background: rgba(124,106,247,0.15); }
+
+.style-checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface2);
+  flex-shrink: 0;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.style-option.selected .style-checkbox {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.style-option-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.style-option-desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; margin-top: 1px; font-family: 'Lora', serif; font-style: italic; }
+
+.style-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 0;
+}
+
+.style-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(124,106,247,0.15);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.style-tag button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+}
+.style-tag button:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="app-title">Caption<span>AI</span></div>
+    <div class="app-sub">TikTok leírás generátor</div>
+  </div>
+  <div class="clients-label">Ügyfelek</div>
+  <div class="clients-list" id="clientsList"></div>
+  <button class="add-client-btn" onclick="openNewClientModal()">+ Új ügyfél hozzáadása</button>
+  <button class="add-client-btn" onclick="openSlackImportModal()" style="border-color:#4A154B;color:#4A154B;margin-top:4px">⚡ Slack ügyfelek kezelése</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar" id="topbar">
+    <div>
+      <div class="topbar-title" id="topbarTitle">Válassz ügyfelet</div>
+      <div class="topbar-subtitle" id="topbarSub">← Bal oldalon találod az ügyfeleket</div>
+    </div>
+    <button onclick="openSettingsModal()" title="AssemblyAI beállítások" style="background:none;border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--muted);cursor:pointer;font-size:0.85rem;margin-right:8px;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">⚙ API</button>
+    <div class="view-tabs" id="viewTabs" style="display:none">
+      <button class="view-tab active" onclick="switchView('generate')">✨ Generálás</button>
+      <button class="view-tab" onclick="switchView('profile')">⚙️ Profil</button>
+    </div>
+  </div>
+
+  <div class="content" id="mainContent">
+    <div class="empty-state">
+      <div class="icon">👈</div>
+      <h3>Nincs kiválasztott ügyfél</h3>
+      <p>Adj hozzá egy ügyfelet a bal oldalon,<br>vagy válassz egyet a listából.</p>
+    </div>
+  </div>
+</div>
+
+<!-- NEW CLIENT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>➕ Új ügyfél</h2>
+
+    <div class="field">
+      <label>Márkanév *</label>
+      <input type="text" id="newName" placeholder="pl. Nárcisz Sajtmanufaktúra">
+    </div>
+
+    <div class="field">
+      <label>Iparág / típus</label>
+      <input type="text" id="newIndustry" placeholder="pl. Élelmiszer, Divat, Fitness...">
+    </div>
+
+    <div class="field">
+      <label>Ikon</label>
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+
+    <div class="field">
+      <label>Stílus leírás (hogyan kommunikál a márka?)</label>
+      <textarea id="newStyle" placeholder="pl. Barátságos, meleg hangvétel. Emojikkal teli. Közösségépítő. Mindig 'Sajtbarátok'-nak szólítja a követőket..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Kötelező hashtagek</label>
+      <input type="text" id="newHashtags" placeholder="#márkanév #iparág (szóközzel elválasztva)">
+    </div>
+
+    <div class="field">
+      <label>Referencia szöveg(ek) – a stílus mintaként</label>
+      <textarea id="newReference" placeholder="Másold be 1-2 korábbi poszt szövegét, hogy az AI tanulja a stílust..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Platform</label>
+      <div class="platform-tags" id="platformTags">
+        <button class="ptag active" data-p="TikTok">TikTok</button>
+        <button class="ptag" data-p="Instagram">Instagram</button>
+        <button class="ptag" data-p="Facebook">Facebook</button>
+        <button class="ptag" data-p="YouTube">YouTube</button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="cancel-btn" onclick="closeModal()">Mégse</button>
+      <button class="save-btn" onclick="saveNewClient()">💾 Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:420px">
+    <h2>⚙ AssemblyAI beállítások</h2>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:20px;line-height:1.6;font-family:'Lora',serif;font-style:italic">
+      Az automatikus hangfelismeréshez AssemblyAI API kulcs szükséges.<br>
+      Ingyenes regisztráció: <a href="https://www.assemblyai.com" target="_blank" style="color:var(--accent)">assemblyai.com</a> → API Keys menü.
+    </p>
+    <div class="field">
+      <label>AssemblyAI API kulcs</label>
+      <input type="password" id="settingsKeyInput" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+    </div>
+    <div style="border-top:1px solid var(--border);margin:20px 0"></div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;line-height:1.6;font-family:'Lora',serif;font-style:italic">
+      Google Sheets integrációhoz telepítsd az Apps Script-et a táblázatba, majd add meg a Web app URL-t.<br>
+      <a href="https://make.com" target="_blank" style="color:var(--accent)">make.com</a> → Scenario → Webhook URL
+    </p>
+    <div class="field">
+      <label>Átírás szerver URL (Render)</label>
+      <input type="text" id="settingsSheetsUrl" placeholder="https://captionai-server.onrender.com/transcribe">
+    </div>
+    <div id="keyStatus" style="font-size:0.78rem;margin-top:4px;min-height:16px"></div>
+    <div class="modal-footer">
+      <button class="cancel-btn" onclick="closeSettingsModal()">Mégse</button>
+      <button class="save-btn settings-save-btn" onclick="saveSettings()">💾 Mentés</button>
+    </div>
+  </div>
+</div>
+
+<!-- SLACK IMPORT MODAL -->
+<div class="modal-overlay" id="slackImportModal">
+  <div class="modal" style="max-width:560px">
+    <h2>⚡ Slack ügyfelek kezelése</h2>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:20px;line-height:1.6;font-family:'Lora',serif;font-style:italic">
+      Jelöld be melyik ügyfeleket szeretnéd az appban. A bejelöltek automatikusan felkerülnek / megmaradnak, a kipipáltak eltávolításra kerülnek.
+    </p>
+    <div id="slackClientList" style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+    <div class="modal-footer">
+      <button class="cancel-btn" onclick="closeSlackImportModal()">Mégse</button>
+      <button class="save-btn" onclick="applySlackImport()">✅ Mentés</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────
+let clients = [];
+let activeClientId = null;
+let activeView = 'generate';
+let selectedTone = 'meleg és barátságos';
+let selectedPlatforms = ['TikTok'];
+let selectedEmoji = '🏢';
+let resultVersions = [];
+let activeVersion = 0;
+let selectedVideoStyles = [];
+
+const VIDEO_STYLES = [
+  { id: 'skit', label: 'Skit', desc: 'Karakterekkel, poénnal, konfliktussal. "Amikor a haverod azt mondja csak egy sör lesz…"' },
+  { id: 'sales', label: 'Sales', desc: 'Hook → probléma → megoldás → CTA. Klasszikus "ezt mindenki rosszul csinálja" energia.' },
+  { id: 'pov', label: 'POV', desc: 'Néző belehelyezése egy szituba. "POV: te vagy az utolsó ember a benzinkúton hajnali 3-kor."' },
+  { id: 'storytime', label: 'Storytime', desc: 'Személyes sztori, gyors dramaturgiával. Mini Netflix egy percben.' },
+  { id: 'tutorial', label: 'Tutorial', desc: 'How-To "Így csináld…" videók. Brutálisan erős retention gépek.' },
+  { id: 'beforeafter', label: 'Before / After', desc: 'Átalakulás: szoba, autó, test, étel, videóedit, bármi.' },
+  { id: 'dayinlife', label: 'Day in the Life', desc: 'Napi rutin dokumentálása. Az internet digitális akváriuma.' },
+  { id: 'reaction', label: 'Reaction Video', desc: 'Valamire reagálás. Videóra, kommentre, hírre, termékre.' },
+  { id: 'vlog', label: 'Vlog', desc: 'Gyors, filmes hangulatú életpillanatok. Kávé + cipőkopogás + naplemente kombó.' },
+  { id: 'trend', label: 'Trend Remix', desc: 'Trend hang vagy template saját csavarral. A TikTok evolúciója gyorsabban működik mint egy energiaitalos kolibri.' },
+  { id: 'educational', label: 'Educational', desc: 'Tudás szórakoztató formában. "3 pszichológiai trükk amit a boltok használnak."' },
+  { id: 'unboxing', label: 'Unboxing', desc: 'Kibontás + első reakció. Az emberiség ősi ösztöne: "vajon mi van a dobozban?"' },
+  { id: 'challenge', label: 'Challenge', desc: 'Kihívás alapú tartalom. Időlimit, büntetés, skill teszt.' },
+  { id: 'utcai', label: 'Utcai', desc: 'Utcai kérdések vagy mini interjúk. Random emberek = kiszámíthatatlan aranybánya.' },
+  { id: 'sigma', label: 'Sigma Edit', desc: 'Dramatic music + grindset + lassított B-roll. Koffeines gladiátorhangulat.' },
+  { id: 'cinematic', label: 'Cinematic B-Roll', desc: 'Hangulatvideó erős vágással. Étel, autó, utazás, fashion.' },
+  { id: 'comment', label: 'Comment Reply', desc: 'Kommentből készített tartalom. Algoritmus-imádó formátum.' },
+  { id: 'asmr', label: 'ASMR', desc: 'Hangok, textúrák, nyugtató mozdulatok. Agysimogató content.' },
+  { id: 'hook', label: 'Hook', desc: 'Meghökkentő vagy furcsa kezdés. "Ne görgess tovább." "Most figyelj…" "Ezt a videót törölni fogják."' },
+];
+
+const EMOJIS = ['🧀','🍕','👗','🏋️','🌿','☕','🎨','🐾','💄','🍰','🌸','🔥','💪','🎵','🏠','✈️','🍷','🌍','🐄','🏢'];
+
+// ── SLACK CLIENTS DATA ───────────────────────────────
+const SLACK_CLIENTS = [
+  { id: 'slack_zebi', name: 'Zebi Vendégház', channel: 'zebi-vendégház', emoji: '🏠', industry: 'Szálláshely / Vendégház', style: 'Barátságos, meleg, vendégváró. Foglalásokra ösztönöz. Természetes hangvétel.', hashtags: '#zebivendéghaz #szállás #vendégház #nyaralás', reference: '' },
+  { id: 'slack_apat', name: 'Apát Panzió', channel: 'apát-panzió', emoji: '🏨', industry: 'Szálláshely / Panzió', style: 'Barátságos, vendégváró. Foglalásokra fókuszál. Google és Meta hirdetésekkel dolgozik.', hashtags: '#apatpanzio #panzió #szállás #foglalás', reference: '' },
+  { id: 'slack_nordii', name: 'Nordii', channel: 'nordii', emoji: '🏗️', industry: 'Ingatlanfejlesztés / Lakópark', style: 'Prémium, modern, skandináv ihletettségű. Energiatakarékos apartmanházak. A+ és A+++ energiaosztály. Vizuálisan erős, cinematic tartalmak.', hashtags: '#nordii #lakópark #ingatlan #újépítésű #energiatakarékos', reference: '' },
+  { id: 'slack_florex', name: 'Florex', channel: 'florex', emoji: '🌸', industry: 'Ismeretlen – Meta hirdetések futnak', style: 'Informális, közvetlen.', hashtags: '#florex', reference: '' },
+  { id: 'slack_petiszbricks', name: 'PetiszBricks', channel: 'petiszbricks', emoji: '🧱', industry: 'Építőanyag / LEGO-szerű termékek', style: 'Játékos, kreatív, fiatalos.', hashtags: '#petiszbricks #építés #kreativitas', reference: '' },
+  { id: 'slack_mobilhazgyar', name: 'Mobilházgyár', channel: 'mobilhazgyar', emoji: '🏗️', industry: 'Mobilház / Moduláris építészet', style: 'Modern, praktikus, megoldásorientált. Mobil otthonok bemutatása.', hashtags: '#mobilhaz #mobilhazgyar #modulárisház #otthon', reference: '' },
+  { id: 'slack_watt', name: 'Watt Energy', channel: 'watt-energy', emoji: '⚡', industry: 'Energiaital / FMCG snack', style: 'Fiatalos, energikus, humoros. Utcai tartalmak, kihívások, skit-ek. Prémium ügyfél. Heti 2 videó, TikTok-fókusz. 5 íz, 0% édesítőszer. Tálcás és dobozos kiszerelés.', hashtags: '#wattenergy #energiaital #watt #debrecen', reference: 'UTCA - eldugtunk a téren 5 Watt-ot, amennyit megtalálsz 30mp alatt, az a tied! Adj egy WATT-ot! 5 féle íz. Ki lesz az utolsó WATT? Harc érte minden áron!' },
+  { id: 'slack_cliff', name: 'Cliff', channel: 'cliff', emoji: '🏢', industry: 'Ismeretlen – aktív ügyfél', style: 'Informális, közvetlen.', hashtags: '#cliff', reference: '' },
+  { id: 'slack_radelit', name: 'Radelit', channel: 'radelit', emoji: '🔧', industry: 'Műszaki / Ipari termékek', style: 'Szakmai, megbízható, informatív.', hashtags: '#radelit #műszaki #ipari', reference: '' },
+  { id: 'slack_fruttamas', name: 'Fruttamas', channel: 'fruttamas', emoji: '🍓', industry: 'Élelmiszer / Gyümölcs', style: 'Friss, természetes, egészséges életmód fókusz.', hashtags: '#fruttamas #gyümölcs #egészséges #friss', reference: '' },
+  { id: 'slack_labornum', name: 'Labornum', channel: 'labornum', emoji: '🔬', industry: 'Labor / Egészségügy / Tudományos', style: 'Professzionális, megbízható, szakmai.', hashtags: '#labornum #labor #egészség', reference: '' },
+  { id: 'slack_dvsc', name: 'DVSC', channel: 'dvsc', emoji: '⚽', industry: 'Sport / Labdarúgás', style: 'Szenvedélyes, szurkolói hangvétel. Debreceni büszkeség. Videók jóváhagyása szükséges közzététel előtt.', hashtags: '#dvsc #debrecen #focihuligán #hajrádvsc', reference: '' },
+  { id: 'slack_tran', name: 'Tran Balázs', channel: 'tran-balázs', emoji: '👤', industry: 'Személyi márka / Egyéni vállalkozó', style: 'Személyes, autentikus, közvetlen.', hashtags: '#tranbalazs', reference: '' },
+  { id: 'slack_zetrov', name: 'Zetrov Invest', channel: 'zetrov-invest', emoji: '📈', industry: 'Befektetés / Ingatlan / Pénzügy', style: 'Prémium, megbízható, informatív. Befektetési lehetőségek.', hashtags: '#zetrovi nvest #befektetés #ingatlan #pénzügy', reference: '' },
+  { id: 'slack_veky', name: 'Veky Garden', channel: 'veky-garden', emoji: '🌿', industry: 'Kertészet / Kerti termékek', style: 'Természetes, zöld, barátságos. Szerepelő: üzletvezető nő. Heti 7 videó.', hashtags: '#vekygarden #kert #kertészet #növény', reference: '' },
+  { id: 'slack_koktel', name: 'Koktél Műhely', channel: 'koktel-muhely', emoji: '🍹', industry: 'Koktélbár / Italok / Szórakozás', style: 'Játékos, izgalmas, kreatív. Koktélkészítés bemutatása, receptek, hangulat.', hashtags: '#koktelmuhelye #koktél #bárcraft #mixology', reference: '' },
+  { id: 'slack_rdi', name: 'RDI Hungary', channel: 'rdi_hungary', emoji: '🏢', industry: 'B2B / Ipari / Kereskedelmi', style: 'Szakmai, megbízható, informatív.', hashtags: '#rdihungary #ipar #kereskedelem', reference: '' },
+  { id: 'slack_tabaka', name: 'Tabaka Kisgép', channel: 'tabaka-kisgép', emoji: '⚙️', industry: 'Kisgép / Háztartási eszközök', style: 'Praktikus, hasznos, termékfókuszú. How-to és termékbemutató videók.', hashtags: '#tabakasgep #kisgép #háztartás', reference: '' },
+  { id: 'slack_studionatura', name: 'StudioNatura', channel: 'studionatura', emoji: '🌿', industry: 'Természetes termékek / Wellness / Stúdió', style: 'Nyugodt, természetes, hiteles. Organikus életmód fókusz.', hashtags: '#studionatura #természetes #wellness #organic', reference: '' },
+  { id: 'slack_pizza', name: 'Pizza Holiday', channel: 'pizza-holiday', emoji: '🍕', industry: 'Étterem / Pizzéria / Vendéglátás', style: 'Laza, étvágygerjesztő, szórakoztató. Étel-közeli tartalmak, behind the scenes, unboxing jellegű termékbemutatók.', hashtags: '#pizzaholiday #pizza #étterem #vendéglátás #debrecen', reference: '' },
+  { id: 'slack_mido', name: 'Mido Konstrukt', channel: 'mido-konstrukt', emoji: '🏗️', industry: 'Építőipar / Kivitelezés', style: 'Szakmai, megbízható. Before/after tartalmak, buildek bemutatása.', hashtags: '#midokonstrukt #építőipar #kivitelezés #építés', reference: '' },
+  { id: 'slack_leon', name: 'Leon Tacos', channel: 'leon-tacos', emoji: '🌮', industry: 'Street food / Mexikói étterem', style: 'Fiatalos, laza, ízpromóció fókuszú. Étvágygerjesztő B-roll, behind the scenes.', hashtags: '#leontacos #taco #streetfood #mexikói #debrecen', reference: '' },
+  { id: 'slack_rovidaruhaz', name: 'Rövidárúház', channel: 'rovidaruhaz', emoji: '👗', industry: 'Divat / Textil / Kiegészítők', style: 'Divatos, trendy, fiatalos. Termékbemutató, outfit inspo.', hashtags: '#rovidaruhaz #divat #textil #fashion', reference: '' },
+  { id: 'slack_panel', name: 'Panel Centrum', channel: 'panel-centrum', emoji: '🏢', industry: 'Építőanyag / Panelrendszer', style: 'Szakmai, megbízható, B2B és B2C fókusz.', hashtags: '#panelcentrum #építőanyag #panel', reference: '' },
+  { id: 'slack_icolor', name: 'iColor Hungary', channel: 'icolor-hungary', emoji: '🎨', industry: 'Festék / Szín / Lakberendezés', style: 'Kreatív, vizuális, inspiráló. Színtrendek, before/after festési projektek.', hashtags: '#icolorhungary #festék #szín #lakberendezés', reference: '' },
+  { id: 'slack_narcisz', name: 'Nárcisz Sajtmanufaktúra', channel: 'nárcisz-sajtmanufaktúra', emoji: '🧀', industry: 'Kézműves sajt / Élelmiszer', style: 'Meleg, barátságos, közösségépítő. Sajtbarátoknak szól. Emojikkal teli. Vásárokra hív, kóstolásra ösztönöz. Tehén-, kecske- és juhsajtok.', hashtags: '#NárciszSajtmanufaktúra #kézművessajt #tehénsajt #kecskesajt #juhsajt #sajt', reference: 'Kedves Sajtbarátok! 🧀✨ Hozzuk a kedvenceket, hozzuk az újdonságokat! Tehén-, kecske- és juhsajtjaink mind ott lesznek – gyertek, kóstoljatok, válogassatok kedvetekre! 🫶' },
+  { id: 'slack_robs', name: "Rob's Crunchy Puff", channel: 'robs_crunchy_puff', emoji: '🍿', industry: 'Snack / FMCG élelmiszeripar', style: 'Játékos, fiatalos, roppanós energia. Snack-kultúra fókusz.', hashtags: '#robscrunchypuff #snack #roppanós #csips', reference: '' },
+  { id: 'slack_organic', name: 'Organic Life', channel: 'organic-life', emoji: '🌱', industry: 'Organikus termékek / Egészséges életmód', style: 'Természetes, hiteles, edukációs. Organikus életmód promotion.', hashtags: '#organiclife #organic #egészséges #természetes', reference: '' },
+  { id: 'slack_rotower', name: 'Rotower / GreenDropsFarm', channel: 'rotower-greendropsfarm', emoji: '🌱', industry: 'Agritech / Vertikális gazdálkodás', style: 'Innovatív, zöld technológia fókusz. Fenntartható mezőgazdaság.', hashtags: '#rotower #greendrops farm #vertikálisgazdálkodás #agritech', reference: '' },
+  { id: 'slack_corgi', name: 'Corgi Caffé', channel: 'corgi-caffe', emoji: '☕', industry: 'Kávézó / Specialty coffee', style: 'Hangulatos, kávéimádóknak szóló. Barista kultúra, ASMR jellegű tartalmak, vlog-szerű hétköznapok.', hashtags: '#corgicaffe #kávé #specialtycoffee #barista #debrecen', reference: '' },
+  { id: 'slack_bethbau', name: 'Beth Bau', channel: 'beth-bau', emoji: '🏗️', industry: 'Építőipar / Ingatlan felújítás', style: 'Szakmai, megbízható. Before/after tartalmak.', hashtags: '#bethbau #építőipar #felújítás #kivitelezés', reference: '' },
+  { id: 'slack_fripsy', name: 'Fripsy Magyarország', channel: 'fripsy-magyarorszag', emoji: '🍟', industry: 'Étterem / Chicken / Fast Food', style: 'Laza, fiatalos, ízpromóció. Csirke-fókusz, street food hangulat.', hashtags: '#fripsy #chicken #fastfood #debrecen', reference: '' },
+  { id: 'slack_crazyjuice', name: 'Crazy Juice', channel: 'crazy-juice', emoji: '🧃', industry: 'Gyümölcslé / Friss ital / FMCG', style: 'Energikus, egészséges életmód. TikTok reach kampányok.', hashtags: '#crazyjuice #gyümölcslé #frissital #egészséges', reference: '' },
+  { id: 'slack_road', name: 'Road Capital', channel: 'road-capital', emoji: '📈', industry: 'Befektetés / Tőke / Pénzügyi szolgáltatás', style: 'Prémium, professzionális, megbízható. Befektetési lehetőségek.', hashtags: '#roadcapital #befektetés #tőke #pénzügy', reference: '' },
+  { id: 'slack_vitorlas', name: 'Vitorlás Vendégház', channel: 'vitorlás-vendégház', emoji: '⛵', industry: 'Szálláshely / Vízparti vendégház', style: 'Romantikus, kalandos, természetközeli. Vízparti hangulat, nyaralás fókusz.', hashtags: '#vitorlasvendéghaz #szállás #vízpart #nyaralás', reference: '' },
+  { id: 'slack_mezone', name: 'Mezőné Bak Viktória', channel: 'mezőné-bak-viktória', emoji: '👤', industry: 'Személyi márka / Szakember', style: 'Személyes, hiteles, szakmai.', hashtags: '#mezőnébak #személyimárka', reference: '' },
+  { id: 'slack_csertolgyi', name: 'Csertölgyi Villa', channel: 'csertölgyi-villa', emoji: '🏡', industry: 'Luxus villa / Rendezvényhelyszín', style: 'Elegáns, prémium, esemény-fókusz. Esküvők, rendezvények.', hashtags: '#csertolgyivilla #villa #rendezvény #esküvő', reference: '' },
+  { id: 'slack_sallai', name: 'Sallai Feri', channel: 'sallai-feri', emoji: '👤', industry: 'Fémfelvásárlás / Klaudia-Ferr Kft (vas, színesfém)', style: 'Humoros, vicces hook-ok. Skit és POV stílusú tartalmak. Méhésztelep és fém téma kombó. Egyéni stílus.', hashtags: '#sallaiferi #fémfelvásárlás #vas #debrecen', reference: 'Ez itt a Méhtelep? Na jó, nem mézért, hanem fémért jöttem! A Klaudia-Ferr Kft. Debrecenben vas és színesfém felvásárlással foglalkozik – napi legmagasabb áron.' },
+  { id: 'slack_electrocool', name: 'Electrocool', channel: 'electrocool', emoji: '❄️', industry: 'Klíma / Hőszivattyu / HVAC', style: 'Szakmai de barátságos. Klíma telepítés, karbantartás. Sinclair márka partner.', hashtags: '#electrocool #klíma #hőszivattyu #sinclair', reference: '' },
+  { id: 'slack_szenderkert', name: 'Szenderkert', channel: 'szenderkert', emoji: '🌾', industry: 'Rendezvénykert / Workshop helyszín / Webshop', style: 'Hangulatos, közösségi, esemény-fókusz. Workshopok, rendezvények, webshop termékek. Süti workshop, körforgásos programok.', hashtags: '#szenderkert #workshop #rendezvény #kert #esemény', reference: 'Workshopok, foglalások, heti posztok – mindig friss tartalom Szenderkertből! Gyere el hozzánk egy kézműves programra! 🌾' },
+  { id: 'slack_vdesign', name: 'V-Design', channel: 'v-design', emoji: '🎨', industry: 'Grafikai tervezés / Vizuális kommunikáció', style: 'Kreatív, vizuális, inspiráló. Portfólió és behind-the-scenes tartalmak.', hashtags: '#vdesign #grafika #design #kreativitás', reference: '' },
+  { id: 'slack_julia', name: 'Julia Apartments', channel: 'julia-apartments', emoji: '🏠', industry: 'Apartman / Szálláskiadás', style: 'Barátságos, vendégváró. Fotós és videós tartalmak modellekkel. Foglalásösztönzés.', hashtags: '#juliaapartments #apartman #szállás #nyaralás', reference: '' },
+  { id: 'slack_karszalag', name: 'Karszalag Center', channel: 'karszalagcenter', emoji: '🎫', industry: 'Rendezvénytechnika / Karszalagok / B2B', style: 'Megbízható, B2B fókusz. Célközönség: 25-60 közötti cégvezetők. Fesztivál-hangulat.', hashtags: '#karszalagcenter #karszalag #rendezvény #fesztivál', reference: 'Rendeljen most, bulizzon később! Közeleg a nyár, és már a levegőben van a fesztiválhangulat – mindent megtalál nálunk, amire egy fesztivál megszervezéséhez szüksége lehet.' },
+  { id: 'slack_kathifood', name: 'Kathi Food Kft', channel: 'kathi-food-kft', emoji: '🍽️', industry: 'Élelmiszergyártás / B2B élelmiszer', style: 'Ismertetőjellegű, nem sales. Termékek bemutatása, mit csinálnak. Barátságos, hiteles.', hashtags: '#kathifood #élelmiszer #termék', reference: 'Nem telibe sales, ez inkább ismertető jellegű – termékekről, mit csinálnak. Természetes hangvétel.' },
+  { id: 'slack_bellon', name: 'Bellon Faiskola', channel: 'bellon-faiskola', emoji: '🌳', industry: 'Faiskola / Kertészet / Növények', style: 'Természetes, szakmai, szezonális tartalmak. Növénybemutatók, ültetési tippek.', hashtags: '#bellonfaiskola #faiskola #kertészet #növény #fa', reference: '' },
+  { id: 'slack_plantstore', name: 'Plant Store', channel: 'plant-store', emoji: '🪴', industry: 'Növénykereskedés / Kertészet / Webshop', style: 'Szenvedélyes, növényszerető. Hatalmas készlet, kamionos szállítmány. TikTok + Facebook + Instagram jelenlét. Olajfa és pálma fókusz.', hashtags: '#plantstore #növény #kertészet #olajfa #pálma', reference: 'Megérkezett idei negyedik kamionunk, bővítenünk kellett árudánkat... Tekintsétek meg bemutató videónkat amely betekintést nyújt hatalmas kínálatunkba és készletünkbe.' },
+  { id: 'slack_otpimarkt', name: 'Otpimarkt Optika', channel: 'otpimarkt-optika', emoji: '👓', industry: 'Optika / Szemüveg / Egészségügy', style: 'Szakmai, barátságos. Szemüveg bemutatók, látásvizsgálat promóció.', hashtags: '#otpimarktoptika #optika #szemüveg #látásvizsgálat', reference: '' },
+  { id: 'slack_zagonyi', name: 'Zágonyi Ingatlan', channel: 'zagonyi-ingatlan', emoji: '🏘️', industry: 'Ingatlan / Ingatlankozvetítés', style: 'Megbízható, professzionális. Ingatlan bemutatók, piaci trendek. Felirat nélkül jobb számok TikTokon.', hashtags: '#zagonyiingatlan #ingatlan #debrecen #eladó #kiadó', reference: '' },
+  { id: 'slack_kertesz', name: 'Kertész Kurzus', channel: 'kertesz-kurzus', emoji: '🌻', industry: 'Online oktatás / Kertészet kurzus', style: 'Edukációs, inspiráló. Kurzuspromo, fagyvedelem, ültetési tippek. Tutorial és educational stílus. Webshopos partnerségek.', hashtags: '#kerteszkurzus #kertészet #kurzus #online tanulás', reference: '' },
+  { id: 'slack_matra', name: 'Mátra Hillside', channel: 'matra-hillside', emoji: '⛰️', industry: 'Szálláshely / Természetjárás / Hegyi resort', style: 'Természetközeli, romantikus, kalandos. Célközönség 50+ korosztály. Heti 1 videó poszt. Csökkentett SM kezelés.', hashtags: '#matrahillside #mátra #szállás #természet #hegyek', reference: '' },
+  { id: 'slack_otthon', name: 'Otthon Centrum', channel: 'otthon-centrum', emoji: '🏠', industry: 'Lakberendezés / Bútor / Otthon', style: 'Inspiráló, otthonos. Lakberendezési trendek, termékbemutatók.', hashtags: '#otthoncentrum #lakberendezés #bútor #otthon', reference: '' },
+  { id: 'slack_hgl', name: 'HGL Group Kft', channel: 'hgl-group-kft', emoji: '🏢', industry: 'B2B / Ipari / Kereskedelmi csoport', style: 'Szakmai, megbízható. Blog, SM posztok, hirdetési kampányok.', hashtags: '#hglgroup #b2b #ipar', reference: '' },
+];
+
+// ── SLACK IMPORT MODAL ────────────────────────────────
+function openSlackImportModal() {
+  const existingIds = new Set(clients.map(c => c.id));
+  const list = document.getElementById('slackClientList');
+  list.innerHTML = SLACK_CLIENTS.map(sc => {
+    const isIn = existingIds.has(sc.id);
+    return `
+      <label style="display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:8px;cursor:pointer;transition:background 0.12s;border:1px solid ${isIn ? 'var(--accent)' : 'var(--border)'};background:${isIn ? 'rgba(124,106,247,0.08)' : 'transparent'}">
+        <input type="checkbox" data-id="${sc.id}" ${isIn ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+        <span style="font-size:18px">${sc.emoji}</span>
+        <span style="font-size:0.88rem;font-weight:600;color:var(--text)">${sc.name}</span>
+        <span style="font-size:0.75rem;color:var(--muted);margin-left:auto">#${sc.channel}</span>
+      </label>`;
+  }).join('');
+  document.getElementById('slackImportModal').classList.add('visible');
+}
+
+function closeSlackImportModal() {
+  document.getElementById('slackImportModal').classList.remove('visible');
+}
+
+function applySlackImport() {
+  const checkboxes = document.querySelectorAll('#slackClientList input[type=checkbox]');
+  checkboxes.forEach(cb => {
+    const sc = SLACK_CLIENTS.find(s => s.id === cb.dataset.id);
+    if (!sc) return;
+    const existingIdx = clients.findIndex(c => c.id === sc.id);
+    if (cb.checked && existingIdx === -1) {
+      // Add new client with prefilled data from Slack
+      clients.push({
+        id: sc.id,
+        name: sc.name,
+        emoji: sc.emoji,
+        industry: sc.industry || '',
+        style: sc.style || '',
+        hashtags: sc.hashtags || '',
+        reference: sc.reference || '',
+        platforms: ['TikTok']
+      });
+    } else if (!cb.checked && existingIdx !== -1) {
+      // Remove client
+      if (activeClientId === sc.id) activeClientId = null;
+      clients.splice(existingIdx, 1);
+    }
+  });
+  saveClients();
+  renderClientsList();
+  renderMain();
+  closeSlackImportModal();
+}
+
+// ── STORAGE ─────────────────────────────────────────
+async function saveClients() {
+  try {
+    await window.storage.set('clients-v1', JSON.stringify(clients));
+  } catch(e) {
+    localStorage.setItem('caption-ai-clients', JSON.stringify(clients));
+  }
+}
+
+async function loadClients() {
+  try {
+    const result = await window.storage.get('clients-v1');
+    if (result) clients = JSON.parse(result.value);
+  } catch(e) {
+    const ls = localStorage.getItem('caption-ai-clients');
+    if (ls) clients = JSON.parse(ls);
+  }
+}
+
+// ── INIT ────────────────────────────────────────────
+async function init() {
+  await loadClients();
+  await loadAssemblyKey();
+  await loadSheetsUrl();
+  renderEmojiGrid();
+  renderPlatformTags();
+  renderClientsList();
+  if (clients.length > 0) selectClient(clients[0].id);
+}
+
+// ── CLIENTS ─────────────────────────────────────────
+function renderClientsList() {
+  const el = document.getElementById('clientsList');
+  if (clients.length === 0) {
+    el.innerHTML = '<div style="padding:12px 16px;font-size:0.78rem;color:var(--muted);font-style:italic">Még nincs ügyfél</div>';
+    return;
+  }
+  el.innerHTML = clients.map(c => `
+    <div class="client-item ${c.id === activeClientId ? 'active' : ''}" onclick="selectClient('${c.id}')">
+      <div class="client-avatar">${c.emoji}</div>
+      <div class="client-info">
+        <div class="client-name">${c.name}</div>
+        <div class="client-industry">${c.industry || c.platforms?.join(', ') || ''}</div>
+      </div>
+      <button class="delete-client" onclick="deleteClient(event,'${c.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+function selectClient(id) {
+  activeClientId = id;
+  activeView = 'generate';
+  renderClientsList();
+  renderMain();
+}
+
+function deleteClient(e, id) {
+  e.stopPropagation();
+  if (!confirm('Biztosan törlöd ezt az ügyfelet?')) return;
+  clients = clients.filter(c => c.id !== id);
+  if (activeClientId === id) activeClientId = null;
+  saveClients();
+  renderClientsList();
+  renderMain();
+}
+
+function getClient() {
+  return clients.find(c => c.id === activeClientId);
+}
+
+// ── MODAL ────────────────────────────────────────────
+function openNewClientModal() {
+  document.getElementById('newName').value = '';
+  document.getElementById('newIndustry').value = '';
+  document.getElementById('newStyle').value = '';
+  document.getElementById('newHashtags').value = '';
+  document.getElementById('newReference').value = '';
+  selectedEmoji = '🏢';
+  selectedPlatforms = ['TikTok'];
+  renderEmojiGrid();
+  renderPlatformTags();
+  document.getElementById('modalOverlay').classList.add('visible');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('visible');
+}
+
+function saveNewClient() {
+  const name = document.getElementById('newName').value.trim();
+  if (!name) { alert('A márkanév kötelező!'); return; }
+  const client = {
+    id: Date.now().toString(),
+    name,
+    industry: document.getElementById('newIndustry').value.trim(),
+    emoji: selectedEmoji,
+    style: document.getElementById('newStyle').value.trim(),
+    hashtags: document.getElementById('newHashtags').value.trim(),
+    reference: document.getElementById('newReference').value.trim(),
+    platforms: [...selectedPlatforms]
+  };
+  clients.push(client);
+  saveClients();
+  closeModal();
+  renderClientsList();
+  selectClient(client.id);
+}
+
+// ── EMOJI + PLATFORM ──────────────────────────────────
+function renderEmojiGrid() {
+  document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `
+    <button class="emoji-btn ${e === selectedEmoji ? 'selected' : ''}" onclick="selectEmoji('${e}')">${e}</button>
+  `).join('');
+}
+
+function selectEmoji(e) {
+  selectedEmoji = e;
+  renderEmojiGrid();
+}
+
+function renderPlatformTags() {
+  const container = document.getElementById('platformTags');
+  if (!container) return;
+  container.querySelectorAll('.ptag').forEach(btn => {
+    const p = btn.dataset.p;
+    btn.classList.toggle('active', selectedPlatforms.includes(p));
+    btn.onclick = () => {
+      if (selectedPlatforms.includes(p)) {
+        if (selectedPlatforms.length > 1) selectedPlatforms = selectedPlatforms.filter(x => x !== p);
+      } else {
+        selectedPlatforms.push(p);
+      }
+      renderPlatformTags();
+    };
+  });
+}
+
+// ── VIEWS ────────────────────────────────────────────
+function switchView(v) {
+  activeView = v;
+  document.querySelectorAll('.view-tab').forEach(t => {
+    t.classList.toggle('active', 
+      (v === 'generate' && t.textContent.includes('Generál')) ||
+      (v === 'profile' && t.textContent.includes('Profil'))
+    );
+  });
+  renderMain();
+}
+
+function renderMain() {
+  const client = getClient();
+  const topbarTitle = document.getElementById('topbarTitle');
+  const topbarSub = document.getElementById('topbarSub');
+  const viewTabs = document.getElementById('viewTabs');
+  const content = document.getElementById('mainContent');
+
+  if (!client) {
+    topbarTitle.textContent = 'Válassz ügyfelet';
+    topbarSub.textContent = '← Bal oldalon találod az ügyfeleket';
+    viewTabs.style.display = 'none';
+    content.innerHTML = `<div class="empty-state">
+      <div class="icon">👈</div>
+      <h3>Nincs kiválasztott ügyfél</h3>
+      <p>Adj hozzá egy ügyfelet a bal oldalon,<br>vagy válassz egyet a listából.</p>
+    </div>`;
+    return;
+  }
+
+  topbarTitle.innerHTML = `${client.emoji} ${client.name}`;
+  topbarSub.textContent = client.platforms?.join(' · ') || '';
+  viewTabs.style.display = 'flex';
+
+  if (activeView === 'generate') renderGenerateView(client);
+  else renderProfileView(client);
+}
+
+// ── ASSEMBLYAI ────────────────────────────────────────
+let assemblyKey = '';
+let sheetsUrl = '';
+
+async function loadAssemblyKey() {
+  try {
+    const r = await window.storage.get('assemblyai-key');
+    if (r) assemblyKey = r.value;
+  } catch(e) {
+    assemblyKey = localStorage.getItem('assemblyai-key') || '';
+  }
+}
+
+async function saveAssemblyKey(key) {
+  assemblyKey = key;
+  try {
+    await window.storage.set('assemblyai-key', key);
+  } catch(e) {
+    localStorage.setItem('assemblyai-key', key);
+  }
+}
+
+async function loadSheetsUrl() {
+  try {
+    const r = await window.storage.get('sheets-url');
+    if (r) sheetsUrl = r.value;
+  } catch(e) {
+    sheetsUrl = localStorage.getItem('sheets-url') || '';
+  }
+}
+
+async function saveSheetsUrl(url) {
+  sheetsUrl = url;
+  try {
+    await window.storage.set('sheets-url', url);
+  } catch(e) {
+    localStorage.setItem('sheets-url', url);
+  }
+}
+
+function driveUrlToDirectDownload(url) {
+  let id = null;
+  const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m1) id = m1[1];
+  else if (m2) id = m2[1];
+  if (!id) return null;
+  return `https://drive.google.com/uc?export=download&id=${id}`;
+}
+
+async function transcribeAndGenerate() {
+  const url = document.getElementById('driveUrl')?.value.trim();
+  const manualTranscript = document.getElementById('transcript')?.value.trim();
+
+  // Ha nincs Drive link de van kézi transcript, csak generálás
+  if (!url && manualTranscript) {
+    generate();
+    return;
+  }
+
+  if (!url) { showError('Adj meg egy Drive linket, vagy írj be kézi transcript-et!'); return; }
+  if (!assemblyKey) { showError('Nincs AssemblyAI API kulcs! Add meg a ⚙ beállításoknál.'); return; }
+
+  const directUrl = driveUrlToDirectDownload(url);
+  if (!directUrl) { showError('Nem sikerült felismerni a Drive linket.'); return; }
+
+  const btn = document.getElementById('transcribeBtn');
+  const status = document.getElementById('transcribeStatus');
+  const transcriptArea = document.getElementById('transcript');
+  btn.disabled = true;
+  status.style.color = 'var(--muted)';
+  status.textContent = '⏳ Küldés az AssemblyAI-ra…';
+
+  try {
+    // Render szerveren keresztül (CORS-mentes)
+    if (!sheetsUrl) throw new Error('Nincs szerver URL! Add meg a ⚙ API beállításoknál.');
+
+    status.textContent = '⏳ Hangfelismerés indítása…';
+    const serverRes = await fetch(sheetsUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        audio_url: directUrl,
+        api_key: assemblyKey
+      })
+    });
+
+    if (!serverRes.ok) {
+      const err = await serverRes.json();
+      throw new Error(err.error || `Szerver hiba: HTTP ${serverRes.status}`);
+    }
+
+    const serverData = await serverRes.json();
+    const transcript = serverData.transcript || '';
+    if (!transcript) throw new Error('Üres transcript érkezett. Ellenőrizd a szerver logokat.');
+    transcriptArea.value = transcript;
+    status.textContent = '✅ Átírás kész! Leírás generálása…';
+    status.style.color = 'var(--green)';
+
+    await generate();
+    status.textContent = '✅ Kész!';
+
+  } catch(err) {
+    status.textContent = '❌ ' + err.message;
+    status.style.color = 'var(--accent2)';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function openSettingsModal() {
+  document.getElementById('settingsKeyInput').value = assemblyKey;
+  document.getElementById('settingsSheetsUrl').value = sheetsUrl;
+  document.getElementById('settingsModal').classList.add('visible');
+}
+
+function closeSettingsModal() {
+  document.getElementById('settingsModal').classList.remove('visible');
+}
+
+async function saveSettings() {
+  const key = document.getElementById('settingsKeyInput').value.trim();
+  const url = document.getElementById('settingsSheetsUrl').value.trim();
+  await saveAssemblyKey(key);
+  await saveSheetsUrl(url);
+  closeSettingsModal();
+}
+
+// ── GENERATE VIEW ─────────────────────────────────────
+function renderGenerateView(client) {
+  const content = document.getElementById('mainContent');
+  content.innerHTML = `
+    <div class="profile-badge">${client.emoji} <span>${client.name}</span> · ${client.platforms?.join(', ') || 'TikTok'}</div>
+
+    <div class="section-title">Videó forrása</div>
+    <div class="field">
+      <label>Google Drive link</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="driveUrl" placeholder="https://drive.google.com/file/d/…" style="flex:1">
+        <button id="transcribeBtn" onclick="transcribeAndGenerate()" style="padding:11px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0">🚀 Átírás & Generálás</button>
+      </div>
+      <div id="transcribeStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
+    </div>
+
+    <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px">
+      <label style="margin-bottom:4px">📝 Transcript <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(opcionális – automatikusan töltődik, vagy kézzel is megadható)</span></label>
+      <textarea id="transcript" style="min-height:80px;border:none;padding:6px 0;background:transparent" placeholder="Ha nincs Drive link, ide írhatod/másolhatod a videó tartalmát…"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Videó stílus (opcionális, több is választható)</label>
+      <div class="style-picker">
+        <button class="style-picker-trigger" id="stylePickerTrigger" onclick="toggleStyleDropdown()">
+          <span id="stylePickerLabel">Válassz stílust…</span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="style-dropdown" id="styleDropdown">
+          ${VIDEO_STYLES.map(s => `
+            <div class="style-option" id="opt-${s.id}" onclick="toggleStyle('${s.id}')">
+              <div class="style-checkbox" id="chk-${s.id}"></div>
+              <div>
+                <div class="style-option-label">${s.label}</div>
+                <div class="style-option-desc">${s.desc}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="style-tags" id="styleTags"></div>
+    </div>
+
+    <div class="gen-grid">
+      <div class="field">
+        <label>Helyszín / esemény (opcionális)</label>
+        <input type="text" id="genLocation" placeholder="pl. Budapest, vásár...">
+      </div>
+      <div class="field">
+        <label>Extra kulcsszó (opcionális)</label>
+        <input type="text" id="genKeyword" placeholder="pl. akció, újdonság, recept...">
+      </div>
+    </div>
+
+    <div class="section-title">Hangulat</div>
+    <div class="tone-row" id="toneRow">
+      ${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => `
+        <button class="tone-chip ${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'${t.split(' ').slice(1).join(' ')}')">${t}</button>
+      `).join('')}
+    </div>
+
+    <br>
+    <button class="generate-btn" id="genBtn" onclick="generate()">✨ Leírás generálása</button>
+    <div class="error-box" id="errorBox"></div>
+    <div class="loading-box" id="loadingBox"><div class="spinner"></div><br>Írjuk a leírást...</div>
+    <div class="result-box" id="resultBox">
+      <div class="result-header">
+        <div class="ver-tabs" id="verTabs"></div>
+        <div style="display:flex;gap:8px">
+          <button class="copy-btn" onclick="copyResult()">📋 Másolás</button>
+          <button class="copy-btn" id="csvBtn" onclick="saveToCSV()" style="border-color:#0f9d58;color:#0f9d58" title="CSV letöltés">📊 CSV</button>
+        </div>
+      </div>
+      <div id="csvStatus" style="font-size:0.75rem;margin-bottom:8px;min-height:16px;font-style:italic;color:var(--muted)"></div>
+      <div class="result-text" id="resultText"></div>
+    </div>
+  `;
+
+  selectedTone = 'Meleg & barátságos';
+  selectedVideoStyles = [];
+  renderStyleTags();
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', closeStyleDropdownOutside);
+}
+
+function toggleStyleDropdown() {
+  const trigger = document.getElementById('stylePickerTrigger');
+  const dropdown = document.getElementById('styleDropdown');
+  trigger.classList.toggle('open');
+  dropdown.classList.toggle('open');
+}
+
+function closeStyleDropdownOutside(e) {
+  const picker = document.querySelector('.style-picker');
+  if (picker && !picker.contains(e.target)) {
+    document.getElementById('stylePickerTrigger')?.classList.remove('open');
+    document.getElementById('styleDropdown')?.classList.remove('open');
+  }
+}
+
+function toggleStyle(id) {
+  if (selectedVideoStyles.includes(id)) {
+    selectedVideoStyles = selectedVideoStyles.filter(s => s !== id);
+  } else {
+    selectedVideoStyles.push(id);
+  }
+  // update checkboxes
+  VIDEO_STYLES.forEach(s => {
+    const opt = document.getElementById('opt-' + s.id);
+    const chk = document.getElementById('chk-' + s.id);
+    if (opt && chk) {
+      const sel = selectedVideoStyles.includes(s.id);
+      opt.classList.toggle('selected', sel);
+      chk.textContent = sel ? '✓' : '';
+    }
+  });
+  renderStyleTags();
+}
+
+function renderStyleTags() {
+  const container = document.getElementById('styleTags');
+  const label = document.getElementById('stylePickerLabel');
+  if (!container) return;
+
+  if (selectedVideoStyles.length === 0) {
+    container.innerHTML = '';
+    if (label) label.textContent = 'Válassz stílust…';
+    return;
+  }
+
+  if (label) label.textContent = selectedVideoStyles.length + ' stílus kiválasztva';
+
+  container.innerHTML = selectedVideoStyles.map(id => {
+    const s = VIDEO_STYLES.find(v => v.id === id);
+    return s ? `<span class="style-tag">${s.label}<button onclick="toggleStyle('${id}')">✕</button></span>` : '';
+  }).join('');
+}
+
+function setTone(btn, tone) {
+  document.querySelectorAll('.tone-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedTone = tone;
+}
+
+async function generate() {
+  const client = getClient();
+  const transcript = document.getElementById('transcript')?.value.trim();
+  if (!transcript) { showError('Adj meg transcript szöveget, vagy használd az Átírás & Generálás gombot!'); return; }
+
+  const location = document.getElementById('genLocation')?.value.trim();
+  const keyword = document.getElementById('genKeyword')?.value.trim();
+
+  const btn = document.getElementById('genBtn');
+  const loading = document.getElementById('loadingBox');
+  const result = document.getElementById('resultBox');
+  const errorBox = document.getElementById('errorBox');
+
+  errorBox.classList.remove('visible');
+  result.classList.remove('visible');
+  btn.disabled = true;
+  loading.classList.add('visible');
+
+  const platforms = client.platforms?.join(', ') || 'TikTok';
+
+  const systemPrompt = `Te egy profi közösségi média szövegíró vagy.
+A(z) ${client.name} márka ${platforms} posztjait írod.
+${client.industry ? `Iparág: ${client.industry}` : ''}
+
+STÍLUS:
+${client.style || 'Barátságos, közösségépítő, emojikkal teli.'}
+
+${client.hashtags ? `KÖTELEZŐ HASHTAGEK:\n${client.hashtags}` : ''}
+
+${client.reference ? `REFERENCIA POSZTOK (tanulj ebből a stílusból):\n${client.reference}` : ''}
+
+Fontos: Csak a poszt szövegét add vissza. Semmilyen magyarázatot ne fűzz hozzá.
+Két változatot írj, köztük pontosan "---" elválasztóval (új sorban).
+Hashtagek a szöveg végére kerüljenek.
+KRITIKUS: Minden változat maximum 500 karakter legyen (hashtagekkel együtt). Rövid, ütős, tömör.`;
+
+  const styleInfo = selectedVideoStyles.length > 0
+    ? selectedVideoStyles.map(id => {
+        const s = VIDEO_STYLES.find(v => v.id === id);
+        return s ? `- ${s.label}: ${s.desc}` : '';
+      }).filter(Boolean).join('\n')
+    : null;
+
+  const userPrompt = `Írj ${platforms} posztot ehhez a videóhoz.
+
+Videó tartalma:
+${transcript}
+${location ? `\nHelyszín/esemény: ${location}` : ''}
+${keyword ? `\nExtra kulcsszó/fókusz: ${keyword}` : ''}
+${styleInfo ? `\nVideó stílus(ok) – igazítsd ehhez a leírás hangvételét és struktúráját:\n${styleInfo}` : ''}
+
+Hangulat: ${selectedTone}`;
+
+  try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
