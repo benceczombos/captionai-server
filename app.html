@@ -762,6 +762,132 @@ textarea { min-height: 100px; }
   font-size: 0.82rem; flex: 1; font-family: inherit;
 }
 .insta-add-comment .post-btn { color: #4cb5f9; font-size: 0.82rem; font-weight: 700; cursor: pointer; background: none; border: none; }
+
+/* ── PLATFORM TABS ─────────────────────────────────── */
+.platform-preview-tabs {
+  display: flex; gap: 8px; margin-bottom: 16px;
+}
+.platform-tab-btn {
+  padding: 7px 16px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--muted); font-family: 'Syne', sans-serif;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+}
+.platform-tab-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+.platform-preview { display: none; }
+.platform-preview.active { display: block; }
+
+/* ── FACEBOOK PREVIEW ──────────────────────────────── */
+.fb-post {
+  background: #242526; border: 1px solid #3a3b3c; border-radius: 8px;
+  max-width: 468px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+.fb-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
+.fb-avatar {
+  width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  background: #333;
+}
+.fb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.fb-meta { flex: 1; }
+.fb-name { font-size: 0.88rem; font-weight: 700; color: #e4e6eb; }
+.fb-time { font-size: 0.72rem; color: #b0b3b8; display: flex; align-items: center; gap: 4px; margin-top: 1px; }
+.fb-more { color: #b0b3b8; font-size: 20px; cursor: pointer; padding: 4px; }
+.fb-caption {
+  padding: 0 16px 12px; font-size: 0.88rem; color: #e4e6eb;
+  line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+}
+.fb-caption .fb-hashtag { color: #4cb5f9; }
+.fb-image {
+  width: 100%; aspect-ratio: 1/1; background: #111;
+  display: flex; align-items: center; justify-content: center;
+}
+.fb-image img { width: 60%; height: 60%; object-fit: contain; opacity: 0.9; }
+.fb-stats {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 16px; border-bottom: 1px solid #3a3b3c; font-size: 0.78rem; color: #b0b3b8;
+}
+.fb-reactions { display: flex; align-items: center; gap: 4px; }
+.fb-reaction-icons { display: flex; }
+.fb-reaction-icons span { font-size: 14px; margin-right: -2px; }
+.fb-actions {
+  display: flex; border-top: 1px solid #3a3b3c;
+}
+.fb-action-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; background: none; border: none; color: #b0b3b8;
+  font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+  font-family: inherit;
+}
+.fb-action-btn:hover { background: #3a3b3c; border-radius: 4px; }
+.fb-action-btn svg { width: 18px; height: 18px; fill: none; stroke: #b0b3b8; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── TIKTOK PREVIEW ────────────────────────────────── */
+.tt-post {
+  background: #000; border: 1px solid #2a2a2a; border-radius: 4px;
+  max-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden; position: relative;
+}
+.tt-video {
+  width: 100%; aspect-ratio: 9/16; background: #111;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.tt-video img { width: 50%; height: 50%; object-fit: contain; opacity: 0.7; }
+.tt-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding: 60px 12px 12px;
+}
+.tt-username { font-size: 0.88rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+.tt-caption {
+  font-size: 0.78rem; color: #fff; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; white-space: normal;
+}
+.tt-caption .tt-hashtag { color: #fff; font-weight: 700; }
+.tt-music {
+  display: flex; align-items: center; gap: 6px; margin-top: 6px;
+  font-size: 0.72rem; color: #fff;
+}
+.tt-music-disc {
+  width: 20px; height: 20px; border-radius: 50%; background: #333;
+  border: 2px solid #555; display: flex; align-items: center; justify-content: center;
+  font-size: 8px; animation: spin 3s linear infinite;
+}
+.tt-sidebar {
+  position: absolute; right: 10px; bottom: 80px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.tt-side-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+.tt-side-btn svg { width: 28px; height: 28px; fill: white; }
+.tt-side-count { font-size: 0.65rem; color: #fff; font-weight: 600; }
+.tt-avatar-wrap {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(#000, #000) padding-box,
+              linear-gradient(45deg, #69c9d0, #ee1d52) border-box;
+  border: 2px solid transparent; overflow: hidden; margin-bottom: 4px;
+}
+.tt-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.tt-follow-dot {
+  width: 20px; height: 20px; border-radius: 50%; background: #ee1d52;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: white; margin-top: -14px; margin-bottom: 8px;
+}
+
+/* ── LIKE BUTTON ANIMATIONS ────────────────────────── */
+.like-btn { cursor: pointer; transition: transform 0.15s; }
+.like-btn:active { transform: scale(1.3); }
+.like-btn.liked svg path, .like-btn.liked svg polygon { fill: #ff3040 !important; stroke: #ff3040 !important; }
+.like-btn.liked .like-count { color: #ff3040 !important; }
+.fb-like-btn.liked svg path { fill: #4cb5f9 !important; stroke: #4cb5f9 !important; }
+.fb-like-btn.liked { color: #4cb5f9 !important; }
+@keyframes likeAnim {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.4); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.like-btn.liked { animation: likeAnim 0.4s ease; }
 </style>
 </head>
 <body>
@@ -1421,11 +1547,19 @@ function renderGenerateView(client) {
         </div>
       </div>
       <div id="csvStatus" style="font-size:0.75rem;margin-bottom:8px;min-height:16px;font-style:italic;color:var(--muted)"></div>
-      <div class="result-text" id="resultText"></div>
+      <div class="result-text" id="resultText" contenteditable="true" oninput="onCaptionEdit()" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
     </div>
 
     <div class="insta-preview-wrap" id="instaPreviewWrap">
-      <div class="insta-preview-label">📱 Instagram preview</div>
+      <div class="insta-preview-label">📱 Social media preview</div>
+      <div class="platform-preview-tabs">
+        <button class="platform-tab-btn active" onclick="switchPreviewTab('insta', this)">📸 Instagram</button>
+        <button class="platform-tab-btn" onclick="switchPreviewTab('fb', this)">👥 Facebook</button>
+        <button class="platform-tab-btn" onclick="switchPreviewTab('tt', this)">🎵 TikTok</button>
+      </div>
+
+      <!-- INSTAGRAM -->
+      <div class="platform-preview active" id="preview-insta">
       <div class="insta-post">
         <div class="insta-header">
           <div class="insta-avatar-ring">
@@ -1443,7 +1577,7 @@ function renderGenerateView(client) {
           <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="post">
         </div>
         <div class="insta-actions">
-          <button class="insta-icon">
+          <button class="insta-icon like-btn" id="instaLikeBtn" onclick="toggleLike('instaLikeBtn','instaLikes',1247)">
             <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           </button>
           <button class="insta-icon">
@@ -1456,7 +1590,7 @@ function renderGenerateView(client) {
             <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </button>
         </div>
-        <div class="insta-likes">1 247 kedvelés</div>
+        <div class="insta-likes" id="instaLikes">1 247 kedvelés</div>
         <div class="insta-caption-block">
           <span class="uname">allin.agency</span><span class="caption-text" id="instaCaption"></span>
         </div>
@@ -1468,6 +1602,78 @@ function renderGenerateView(client) {
           <button class="post-btn">Közzétesz</button>
         </div>
       </div>
+      </div><!-- /preview-insta -->
+
+      <!-- FACEBOOK -->
+      <div class="platform-preview" id="preview-fb">
+      <div class="fb-post">
+        <div class="fb-header">
+          <div class="fb-avatar"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="avatar"></div>
+          <div class="fb-meta">
+            <div class="fb-name">Allin Agency</div>
+            <div class="fb-time">1 óra · <svg width="12" height="12" viewBox="0 0 24 24" fill="#b0b3b8"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
+          </div>
+          <div class="fb-more">···</div>
+        </div>
+        <div class="fb-caption" id="fbCaption"></div>
+        <div class="fb-image"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="post"></div>
+        <div class="fb-stats">
+          <div class="fb-reactions">
+            <div class="fb-reaction-icons"><span>👍</span><span>❤️</span><span>😮</span></div>
+            <span style="margin-left:6px" id="fbLikeCount">847</span>
+          </div>
+          <div>124 hozzászólás · 38 megosztás</div>
+        </div>
+        <div class="fb-actions">
+          <button class="fb-action-btn fb-like-btn" id="fbLikeBtn" onclick="toggleLike('fbLikeBtn','fbLikeCount',847)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#b0b3b8" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+            Tetszik
+          </button>
+          <button class="fb-action-btn">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Hozzászólás
+          </button>
+          <button class="fb-action-btn">
+            <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Megosztás
+          </button>
+        </div>
+      </div>
+      </div><!-- /preview-fb -->
+
+      <!-- TIKTOK -->
+      <div class="platform-preview" id="preview-tt">
+      <div class="tt-post">
+        <div class="tt-video">
+          <img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="video">
+          <div class="tt-sidebar">
+            <div class="tt-avatar-wrap"><img src="https://i.ibb.co/kVwQw7QM/1785f6-90d04b8b39e04cb098b2013ce8e845b0-mv2.png" alt="av"></div>
+            <div class="tt-follow-dot">+</div>
+            <div class="tt-side-btn like-btn" id="ttLikeBtn" onclick="toggleLike('ttLikeBtn','ttLikeCount',12400)">
+              <svg viewBox="0 0 24 24" fill="white"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+              <span class="tt-side-count like-count" id="ttLikeCount">12.4K</span>
+            </div>
+            <div class="tt-side-btn">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" fill="white"/></svg>
+              <span class="tt-side-count">843</span>
+            </div>
+            <div class="tt-side-btn">
+              <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13" stroke="white" stroke-width="2"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="white"/></svg>
+              <span class="tt-side-count">Megoszt</span>
+            </div>
+          </div>
+          <div class="tt-overlay">
+            <div class="tt-username">@allin.agency</div>
+            <div class="tt-caption" id="ttCaption"></div>
+            <div class="tt-music">
+              <div class="tt-music-disc">♪</div>
+              <span>Eredeti hang – allin.agency</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div><!-- /preview-tt -->
+
     </div>
   `;
 
@@ -1572,7 +1778,9 @@ ${client.reference ? `REFERENCIA POSZTOK (tanulj ebből a stílusból):\n${clien
 Fontos: Csak a poszt szövegét add vissza. Semmilyen magyarázatot ne fűzz hozzá.
 Két változatot írj, köztük pontosan "---" elválasztóval (új sorban).
 Hashtagek a szöveg végére kerüljenek.
-KRITIKUS: Minden változat maximum 500 karakter legyen (hashtagekkel együtt). Rövid, ütős, tömör.`;
+KRITIKUS: Minden változat maximum 500 karakter legyen (hashtagekkel együtt). Rövid, ütős, tömör.
+TILOS: kötőjel (-) használata, angol szavak (pl. hook, vibe, content, sales, story, tutorial stb.), párbeszédes fogalmazás.
+STÍLUS: hangulat-központú, érzéki, atmoszférikus fogalmazás. Ne magyarázz, ne kérdezz — éreztesd.`;
 
   const styleInfo = selectedVideoStyles.length > 0
     ? selectedVideoStyles.map(id => {
@@ -1627,18 +1835,24 @@ function renderResult() {
     <button class="ver-tab ${i === activeVersion ? 'active' : ''}" onclick="setVersion(${i})">${i+1}. változat</button>
   `).join('');
 
-  resultText.textContent = resultVersions[activeVersion] || '';
+  const raw = resultVersions[activeVersion] || '';
+  resultText.innerHTML = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span style="color:var(--accent)">$1</span>');
   resultBox.classList.add('visible');
   resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-  // Update Instagram preview
+  // Update all social previews
   const instaWrap = document.getElementById('instaPreviewWrap');
-  const instaCaption = document.getElementById('instaCaption');
-  if (instaWrap && instaCaption) {
+  if (instaWrap) {
     const rawText = resultVersions[activeVersion] || '';
-    // Colorize hashtags
-    const colored = rawText.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="hashtag">$1</span>');
-    instaCaption.innerHTML = colored;
+    const colorInsta = rawText.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="hashtag">$1</span>');
+    const colorFb = rawText.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="fb-hashtag">$1</span>');
+    const colorTt = rawText.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="tt-hashtag">$1</span>');
+    const instaCap = document.getElementById('instaCaption');
+    const fbCap = document.getElementById('fbCaption');
+    const ttCap = document.getElementById('ttCaption');
+    if (instaCap) instaCap.innerHTML = colorInsta;
+    if (fbCap) fbCap.innerHTML = colorFb;
+    if (ttCap) ttCap.innerHTML = colorTt;
     instaWrap.classList.add('visible');
     setTimeout(() => instaWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }
@@ -1802,6 +2016,51 @@ function saveProfile() {
 
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toggleLike(btnId, countId, baseCount) {
+  const btn = document.getElementById(btnId);
+  const countEl = document.getElementById(countId);
+  if (!btn) return;
+  const isLiked = btn.classList.contains('liked');
+  btn.classList.toggle('liked');
+  // Re-trigger animation
+  btn.style.animation = 'none';
+  btn.offsetHeight;
+  btn.style.animation = '';
+  if (countEl) {
+    const newCount = isLiked ? baseCount : baseCount + 1;
+    if (btnId === 'ttLikeBtn') {
+      countEl.textContent = newCount >= 1000 ? (newCount/1000).toFixed(1) + 'K' : newCount;
+    } else if (btnId === 'instaLikeBtn') {
+      countEl.textContent = newCount.toLocaleString('hu-HU') + ' kedvelés';
+    } else {
+      countEl.textContent = newCount;
+    }
+  }
+}
+
+function onCaptionEdit() {
+  const resultText = document.getElementById('resultText');
+  const raw = resultText.innerText || '';
+  const colorInsta = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="hashtag">$1</span>');
+  const colorFb = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="fb-hashtag">$1</span>');
+  const colorTt = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span class="tt-hashtag">$1</span>');
+  const instaEl = document.getElementById('instaCaption');
+  const fbEl = document.getElementById('fbCaption');
+  const ttEl = document.getElementById('ttCaption');
+  if (instaEl) instaEl.innerHTML = colorInsta;
+  if (fbEl) fbEl.innerHTML = colorFb;
+  if (ttEl) ttEl.innerHTML = colorTt;
+  // Also update stored version
+  resultVersions[activeVersion] = raw;
+}
+
+function switchPreviewTab(tab, btn) {
+  document.querySelectorAll('.platform-preview').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.platform-tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('preview-' + tab).classList.add('active');
+  btn.classList.add('active');
 }
 
 // ── START ─────────────────────────────────────────────
