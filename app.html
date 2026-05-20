@@ -1143,6 +1143,21 @@ body.light-mode .skeleton-progress { background: #e8e8e8; }
   font-size: 0.78rem; color: var(--muted);
   font-style: italic; min-height: 18px; transition: all 0.3s;
 }
+
+/* ── MODE SWITCHER ──────────────────────────────────── */
+.mode-switcher {
+  display: flex; background: var(--surface2); border-radius: 12px;
+  padding: 4px; gap: 4px; margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+.mode-btn {
+  flex: 1; padding: 10px; border: none; border-radius: 9px;
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.88rem;
+  cursor: pointer; transition: all 0.2s; color: var(--muted); background: none;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.mode-btn.active { background: var(--accent); color: white; box-shadow: 0 2px 8px rgba(124,106,247,0.3); }
+.mode-btn:hover:not(.active) { color: var(--text); }
 </style>
 </head>
 <body>
@@ -1295,6 +1310,7 @@ let selectedEmoji = '🏢';
 let resultVersions = [];
 let activeVersion = 0;
 let selectedVideoStyles = [];
+let currentMode = 'video'; // 'video' or 'photo'
 
 const VIDEO_STYLES = [
   { id: 'skit', label: 'Skit', desc: 'Karakterekkel, poénnal, konfliktussal. "Amikor a haverod azt mondja csak egy sör lesz…"' },
@@ -1569,7 +1585,7 @@ function renderPlatformTags() {
 function switchView(v) {
   activeView = v;
   document.querySelectorAll('.view-tab').forEach(t => {
-    t.classList.toggle('active', 
+    t.classList.toggle('active',
       (v === 'generate' && t.textContent.includes('Generál')) ||
       (v === 'profile' && t.textContent.includes('Profil'))
     );
@@ -2376,6 +2392,23 @@ function hideSkeleton() {
   if (skeletonInterval) { clearInterval(skeletonInterval); skeletonInterval = null; }
 }
 
+function setMode(mode) {
+  currentMode = mode;
+  // Update buttons
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active',
+      (mode === 'video' && btn.textContent.includes('Videó')) ||
+      (mode === 'photo' && btn.textContent.includes('Fotó'))
+    );
+  });
+  // Show/hide content
+  const videoContent = document.getElementById('videoModeContent');
+  const photoContent = document.getElementById('photoModeContent');
+  const styleSection = document.getElementById('styleSectionWrap');
+  if (videoContent) videoContent.style.display = mode === 'video' ? 'block' : 'none';
+  if (photoContent) photoContent.style.display = mode === 'photo' ? 'block' : 'none';
+}
+
 function toggleLike(btnId, countId, baseCount) {
   const btn = document.getElementById(btnId);
   const countEl = document.getElementById(countId);
@@ -2457,6 +2490,265 @@ async function loadTheme() {
     if (knob) knob.textContent = '☀️';
     if (label) label.textContent = '☀️';
   }
+}
+
+
+// ── IMAGE VIEW ────────────────────────────────────────
+function renderImageView(client) {
+  const content = document.getElementById('mainContent');
+  content.innerHTML = `
+    <div class="profile-badge">${client.emoji} <span>${client.name}</span> · Kép elemzés</div>
+
+    <div class="section-title">Kép forrása</div>
+    <div class="field">
+      <label>Google Drive link (kép)</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="imageUrl" placeholder="https://drive.google.com/file/d/… (jpg, png, webp)" style="flex:1">
+        <button id="analyzeBtn" onclick="analyzeImage()" style="padding:11px 20px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer;white-space:nowrap;flex-shrink:0">🔍 Elemzés & Leírás</button>
+      </div>
+      <div id="imageStatus" style="font-size:0.78rem;margin-top:6px;min-height:18px;font-style:italic;color:var(--muted)"></div>
+    </div>
+
+    <div id="imagePreviewWrap" style="display:none;margin-bottom:16px">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);font-weight:600;margin-bottom:8px">Kép előnézet</div>
+      <img id="imagePreviewEl" src="" style="max-width:300px;max-height:300px;border-radius:10px;border:1px solid var(--border);object-fit:cover">
+    </div>
+
+    <div class="field" style="border:1px dashed var(--border);border-radius:10px;padding:14px;display:none" id="imageAnalysisWrap">
+      <label style="margin-bottom:4px">🧠 AI elemzés <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0">(mit lát a képen)</span></label>
+      <div id="imageAnalysis" style="font-size:0.88rem;color:var(--text);line-height:1.6;padding:8px 0;font-family:'Lora',serif;font-style:italic"></div>
+    </div>
+
+    <div class="section-title" style="margin-top:16px">Videó stílus</div>
+    <div class="field">
+      <label>Képstílus (opcionális)</label>
+      <div class="style-picker">
+        <button class="style-picker-trigger" id="stylePickerTrigger2" onclick="toggleStyleDropdown2()">
+          <span id="stylePickerLabel2">Válassz stílust…</span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="style-dropdown" id="styleDropdown2">
+          ${VIDEO_STYLES.map(s => `
+            <div class="style-option" id="opt2-${s.id}" onclick="toggleStyle2('${s.id}')">
+              <div class="style-checkbox" id="chk2-${s.id}"></div>
+              <div>
+                <div class="style-option-label">${s.label}</div>
+                <div class="style-option-desc">${s.desc}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="style-tags" id="styleTags2"></div>
+    </div>
+
+    <div class="section-title">Hangulat</div>
+    <div class="tone-row">
+      ${['😊 Meleg & barátságos','🎉 Lelkes & izgalmas','📚 Informatív','😄 Játékos & vicces','💎 Prémium & elegáns'].map(t => `
+        <button class="tone-chip ${t.includes('Meleg') ? 'active' : ''}" onclick="setTone(this,'${t.split(' ').slice(1).join(' ')}')">${t}</button>
+      `).join('')}
+    </div>
+
+    <br>
+    <div class="error-box" id="imageErrorBox"></div>
+    <div class="loading-box" id="imageLoadingBox"><div class="spinner"></div><br>Elemzés folyamatban...</div>
+
+    <div class="result-box" id="imageResultBox">
+      <div class="result-header">
+        <div class="ver-tabs" id="imageVerTabs"></div>
+        <button class="copy-btn" onclick="copyImageResult()">📋 Másolás</button>
+      </div>
+      <div class="result-text" id="imageResultText" contenteditable="true" style="outline:none;cursor:text;min-height:40px;border:1px dashed transparent;border-radius:6px;padding:4px;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='transparent'"></div>
+      <div class="char-counter" id="imageCharCounter">0 / 500 karakter</div>
+    </div>
+  `;
+
+  selectedImageStyles = [];
+  document.addEventListener('click', closeStyleDropdown2Outside);
+}
+
+let selectedImageStyles = [];
+let imageResultVersions = [];
+let imageActiveVersion = 0;
+
+function toggleStyleDropdown2() {
+  const trigger = document.getElementById('stylePickerTrigger2');
+  const dropdown = document.getElementById('styleDropdown2');
+  trigger?.classList.toggle('open');
+  dropdown?.classList.toggle('open');
+}
+
+function closeStyleDropdown2Outside(e) {
+  const picker = document.querySelector('#styleDropdown2')?.closest('.style-picker');
+  if (picker && !picker.contains(e.target)) {
+    document.getElementById('stylePickerTrigger2')?.classList.remove('open');
+    document.getElementById('styleDropdown2')?.classList.remove('open');
+  }
+}
+
+function toggleStyle2(id) {
+  if (selectedImageStyles.includes(id)) {
+    selectedImageStyles = selectedImageStyles.filter(s => s !== id);
+  } else {
+    selectedImageStyles.push(id);
+  }
+  VIDEO_STYLES.forEach(s => {
+    const opt = document.getElementById('opt2-' + s.id);
+    const chk = document.getElementById('chk2-' + s.id);
+    if (opt && chk) {
+      const sel = selectedImageStyles.includes(s.id);
+      opt.classList.toggle('selected', sel);
+      chk.textContent = sel ? '✓' : '';
+    }
+  });
+  const container = document.getElementById('styleTags2');
+  const label = document.getElementById('stylePickerLabel2');
+  if (!container) return;
+  if (selectedImageStyles.length === 0) {
+    container.innerHTML = '';
+    if (label) label.textContent = 'Válassz stílust…';
+    return;
+  }
+  if (label) label.textContent = selectedImageStyles.length + ' stílus kiválasztva';
+  container.innerHTML = selectedImageStyles.map(id => {
+    const s = VIDEO_STYLES.find(v => v.id === id);
+    return s ? `<span class="style-tag">${s.label}<button onclick="toggleStyle2('${id}')">✕</button></span>` : '';
+  }).join('');
+}
+
+async function analyzeImage() {
+  const imageUrl = document.getElementById('imageUrl')?.value.trim();
+  if (!imageUrl) { showImageError('Adj meg egy Drive linket!'); return; }
+
+  const serverBase = sheetsUrl ? sheetsUrl.replace('/transcribe', '') : '';
+  if (!serverBase) { showImageError('Nincs szerver URL! Add meg a ⚙ API beállításoknál.'); return; }
+
+  const btn = document.getElementById('analyzeBtn');
+  const status = document.getElementById('imageStatus');
+  const loadingBox = document.getElementById('imageLoadingBox');
+  btn.disabled = true;
+  showSkeleton();
+  if (status) { status.textContent = '🔍 Kép letöltése és elemzése...'; status.style.color = 'var(--muted)'; }
+  if (loadingBox) loadingBox.classList.add('visible');
+
+  const client = getClient();
+
+  const systemPrompt = `Te egy profi közösségi média szövegíró vagy.
+A(z) ${client?.name || 'márka'} posztjait írod.
+${client?.industry ? `Iparág: ${client.industry}` : ''}
+${client?.style ? `Stílus: ${client.style}` : ''}
+${client?.hashtags ? `Kötelező hashtagek: ${client.hashtags}` : ''}
+${client?.reference ? `Referencia posztok:
+${client.reference}` : ''}
+
+FELADATOD: Először elemezd a képet 2-3 mondatban (mit látsz), majd írj 2 poszt változatot "---" elválasztóval.
+FORMÁTUM:
+ELEMZÉS: [mit látsz a képen]
+---POSZTOK---
+[1. változat]
+---
+[2. változat]
+
+TILOS: kötőjel (-), angol szavak, párbeszédes fogalmazás.
+STÍLUS: hangulat-központú, érzéki, atmoszférikus. Maximum 500 karakter változatonként.`;
+
+  const styleInfo = selectedImageStyles.length > 0
+    ? selectedImageStyles.map(id => {
+        const s = VIDEO_STYLES.find(v => v.id === id);
+        return s ? `- ${s.label}: ${s.desc}` : '';
+      }).filter(Boolean).join('\n')
+    : null;
+
+  const userPrompt = `Elemezd ezt a képet és írj hozzá ${client?.platforms?.join(', ') || 'TikTok'} posztot.
+${styleInfo ? `\nKépstílus:\n${styleInfo}` : ''}
+Hangulat: ${selectedTone}`;
+
+  try {
+    const res = await fetch(serverBase + '/analyze-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        system: systemPrompt,
+        user: userPrompt
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const text = data.text || '';
+    if (!text) throw new Error('Üres válasz');
+
+    // Parse analysis and posts
+    const analysisMatch = text.match(/ELEMZÉS:\s*(.+?)(?=---POSZTOK---|$)/s);
+    const postsMatch = text.match(/---POSZTOK---\s*(.+)/s);
+
+    if (analysisMatch) {
+      const analysisWrap = document.getElementById('imageAnalysisWrap');
+      const analysisEl = document.getElementById('imageAnalysis');
+      if (analysisWrap && analysisEl) {
+        analysisWrap.style.display = 'block';
+        analysisEl.textContent = analysisMatch[1].trim();
+      }
+    }
+
+    const postsText = postsMatch ? postsMatch[1].trim() : text;
+    imageResultVersions = postsText.split('---').map(v => v.trim()).filter(Boolean);
+    imageActiveVersion = 0;
+    renderImageResult();
+
+    if (status) { status.textContent = '✅ Kész!'; status.style.color = 'var(--green)'; }
+
+  } catch(err) {
+    showImageError('Hiba: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    hideSkeleton();
+    if (loadingBox) loadingBox.classList.remove('visible');
+  }
+}
+
+function renderImageResult() {
+  const verTabs = document.getElementById('imageVerTabs');
+  const resultText = document.getElementById('imageResultText');
+  const resultBox = document.getElementById('imageResultBox');
+  if (!resultBox) return;
+
+  if (verTabs) {
+    verTabs.innerHTML = imageResultVersions.map((_, i) => `
+      <button class="ver-tab ${i === imageActiveVersion ? 'active' : ''}" onclick="setImageVersion(${i})">${i+1}. változat</button>
+    `).join('');
+  }
+  if (resultText) {
+    const raw = imageResultVersions[imageActiveVersion] || '';
+    resultText.innerHTML = raw.replace(/(#[\w\u00C0-\u024F]+)/g, '<span style="color:var(--accent)">$1</span>');
+    const counter = document.getElementById('imageCharCounter');
+    if (counter) {
+      const len = resultText.innerText.length;
+      counter.textContent = `${len} / 500 karakter`;
+      counter.className = 'char-counter' + (len > 500 ? ' over' : len > 420 ? ' warn' : '');
+    }
+  }
+  resultBox.classList.add('visible');
+  resultBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setImageVersion(i) {
+  imageActiveVersion = i;
+  renderImageResult();
+}
+
+function copyImageResult() {
+  const text = document.getElementById('imageResultText')?.innerText || '';
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#imageResultBox .copy-btn');
+    if (btn) { btn.textContent = '✅ Másolva!'; setTimeout(() => btn.textContent = '📋 Másolás', 2000); }
+  });
+}
+
+function showImageError(msg) {
+  const el = document.getElementById('imageErrorBox');
+  if (el) { el.textContent = msg; el.classList.add('visible'); }
 }
 
 // ── START ─────────────────────────────────────────────
