@@ -18,6 +18,17 @@ def home():
 def status():
     return jsonify({'status': 'CaptionAI szerver aktív ✅'})
 
+def get_drive_direct_url(url):
+    import re
+    m = re.search(r'/file/d/([a-zA-Z0-9_-]+)', url)
+    if not m:
+        m = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
+    if not m:
+        return url
+    file_id = m.group(1)
+    # Use the direct download URL that bypasses the virus scan page
+    return f'https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t'
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
     data = request.json
@@ -28,6 +39,10 @@ def transcribe():
         return jsonify({'error': 'Hiányzó audio_url'}), 400
     if not api_key:
         return jsonify({'error': 'Hiányzó AssemblyAI API kulcs'}), 400
+
+    # Convert Drive URL to direct download
+    if 'drive.google.com' in audio_url:
+        audio_url = get_drive_direct_url(audio_url)
 
     headers = {'authorization': api_key, 'content-type': 'application/json'}
 
